@@ -1,3 +1,28 @@
+import { handleAutoAllotBooking, handleAdminOverrideAllotment, handleCancelBooking } from './routes/dispatch';
+
+export default {
+  async fetch(request: Request, env: any): Promise<Response> {
+    const url = new URL(request.url);
+
+    // POST /api/dispatch/auto-allot
+    if (request.method === 'POST' && url.pathname === '/api/dispatch/auto-allot') {
+      return handleAutoAllotBooking(request, env);
+    }
+
+    // POST /api/dispatch/override
+    if (request.method === 'POST' && url.pathname === '/api/dispatch/override') {
+      return handleAdminOverrideAllotment(request, env);
+    }
+
+    // POST /api/dispatch/cancel
+    if (request.method === 'POST' && url.pathname === '/api/dispatch/cancel') {
+      return handleCancelBooking(request, env);
+    }
+
+    return new Response('Not Found', { status: 404 });
+  },
+};
+
 export interface NotificationMessage {
   eventType: string;
   siteId: string;

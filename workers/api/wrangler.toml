@@ -1,6 +1,83 @@
+# =============================================================================
+# File: workers/api/wrangler.toml
+# Description: Production Configuration for Plant Transit Core Edge API
+# Runtime: Cloudflare Workers (V8 Edge)
+# =============================================================================
+
 name = "plant-transit-api"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# -----------------------------------------------------------------------------
+# 1. NETWORK & ROUTE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Single domain route over standard port 443 to bypass corporate plant firewalls
+routes = [
+  { pattern = "transit.plant.internal/api/*", zone_name = "plant.internal" }
+]
+
+# -----------------------------------------------------------------------------
+# 2. CLOUDFLARE QUEUES BINDING (ASYNCHRONOUS PRODUCER)
+# -----------------------------------------------------------------------------
+# Binds the edge API worker as a producer to push notification events without
+# client-side latency or direct outbound firewall dependencies.
+[[queues.producers]]
+binding = "NOTIFICATIONS_QUEUE"
+queue = "vehicle-notifications-prod"
+
+# -----------------------------------------------------------------------------
+# 3. ENVIRONMENT VARIABLES (PUBLIC / NON-SENSITIVE)
+# -----------------------------------------------------------------------------
+[vars]
+APP_ENV = "production"
+BASE_URL = "https://transit.plant.internal"
+SUPABASE_URL = "https://your-tenant-project.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key-placeholder"
+
+# -----------------------------------------------------------------------------
+# 4. ENCRYPTED SECRETS (REFERENCE ONLY - SET VIA WRANGLER CLI)
+# -----------------------------------------------------------------------------
+# DO NOT put raw secret values in this file. Run the following CLI commands:
+#
+#   npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   npx wrangler secret put SUPABASE_JWT_SECRET
+#   npx wrangler secret put QR_SIGNING_SECRET
+#
+# Bindings consumed by workers/api/src/middleware/tenant.ts and allotment.ts:
+# - SUPABASE_SERVICE_ROLE_KEY: High-privilege key for system-level transactions
+# - SUPABASE_JWT_SECRET: HS256 secret for cryptographic token signature verification
+# - QR_SIGNING_SECRET: Secret key for HMAC-SHA256 signature on vehicle cabin QR decals
+
+# -----------------------------------------------------------------------------
+# 5. ENVIRONMENT-SPECIFIC OVERRIDES (STAGING & LOCAL DEV)
+# -----------------------------------------------------------------------------
+[env.staging]
+name = "plant-transit-api-staging"
+routes = [
+  { pattern = "staging-transit.plant.internal/api/*", zone_name = "plant.internal" }
+]
+
+[[env.staging.queues.producers]]
+binding = "NOTIFICATIONS_QUEUE"
+queue = "vehicle-notifications-staging"
+
+[env.staging.vars]
+APP_ENV = "staging"
+BASE_URL = "https://staging-transit.plant.internal"
+SUPABASE_URL = "https://your-staging-project.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-staging-anon-key"
+
+# Local Miniflare / dev environment settings
+[env.development.vars]
+APP_ENV = "development"
+BASE_URL = "http://localhost:8787"
+SUPABASE_URL = "http://127.0.0.1:54321"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.local-supabase-anon-key"
+
+[[env.development.queues.producers]]
+binding = "NOTIFICATIONS_QUEUE"
+queue = "vehicle-notifications-local"
 
 # Production Route - Only port 443 HTTPS
 routes = [
