@@ -1,0 +1,16 @@
+name = "plant-transit-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Production Route - Only port 443 HTTPS
+routes = [
+  { pattern = "transit.company.com/api/*", zone_name = "company.com" }
+]
+
+# Internal Queue Producer Binding
+[[queues.producers]]
+binding = "NOTIFICATIONS_QUEUE"
+queue = "vehicle-notifications-prod"
+
+[vars]
+SUPABASE_URL = "https://your-project.supabase.co"
