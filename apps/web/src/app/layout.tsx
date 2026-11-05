@@ -3,8 +3,8 @@ import React from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Plant Transit & Fleet Management',
-  description: 'Enterprise vehicle booking and fleet dispatch system',
+  title: 'Vehicle booking management systems',
+  description: 'Enterprise Vehicle Booking Platform',
 };
 
 export default function RootLayout({
