@@ -1,0 +1,13 @@
+
+node_modules/
+.wrangler/
+.next/
+
+node_modules/
+.pnpm-store/
+.wrangler/
+.next/
+out/
+dist/
+.vercel/
+*.log
