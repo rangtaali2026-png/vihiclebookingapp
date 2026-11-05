@@ -1,0 +1,9 @@
+{
+  "name": "@plant-transit/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plant Transit Mobile Application",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
