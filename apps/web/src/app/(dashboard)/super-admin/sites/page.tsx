@@ -211,7 +211,7 @@ const MOCK_GATEWAY_SECRETS: GatewaySecret[] = [
     gatewayName: 'Resend Transactional SMTP',
     channel: 'EMAIL',
     gatewayIdentifier: 'transit-jamnagar@plant-logistics.company.com',
-    apiSecret: 're_872xLqZp_9481kLmNoPqRsTuVwXyZ1234',
+    apiSecret: 'smtp_mock_token_jamnagar_development_key',
     environment: 'PRODUCTION',
     isEnabled: true,
     createdDate: '2026-04-05',
