@@ -1,3 +1,4 @@
+import { fetchApi } from '@/lib/api';
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -277,6 +278,90 @@ const MOCK_AUDIT_LOGS: SiteAuditLog[] = [
 // 3. MAIN COMPONENT
 // ============================================================================
 export default function SuperAdminSitesPage() {
+
+  const [gateways, setGateways] = useState<any[]>([
+    {
+      id: 'a1111111-0000-0000-0000-000000000001',
+      site_tag: 'VADODARA COMPLEX',
+      gateway_name: 'Meta WhatsApp Cloud API',
+      channel: 'WHATSAPP',
+      environment: 'PRODUCTION',
+      gateway_identifier: '104928392019283',
+      secret_key: '••••••••••••••••••••••••••••••••',
+      is_enabled: true,
+      last_rotated_at: '2026-10-28'
+    },
+    {
+      id: 'a1111111-0000-0000-0000-000000000002',
+      site_tag: 'VADODARA COMPLEX',
+      gateway_name: 'Airtel Telecom DLT Gateway',
+      channel: 'SMS',
+      environment: 'PRODUCTION',
+      gateway_identifier: 'PLNTRN',
+      secret_key: '••••••••••••••••••••••••••••••••',
+      is_enabled: true,
+      last_rotated_at: '2026-09-14'
+    },
+    {
+      id: 'a2222222-0000-0000-0000-000000000001',
+      site_tag: 'DAHEJ UNIT',
+      gateway_name: 'Meta WhatsApp Cloud API',
+      channel: 'WHATSAPP',
+      environment: 'PRODUCTION',
+      gateway_identifier: '204928392019284',
+      secret_key: '••••••••••••••••••••••••••••••••',
+      is_enabled: true,
+      last_rotated_at: '2026-10-12'
+    },
+    {
+      id: 'a3333333-0000-0000-0000-000000000001',
+      site_tag: 'JAMNAGAR WORKS',
+      gateway_name: 'Resend Transactional SMTP',
+      channel: 'EMAIL',
+      environment: 'PRODUCTION',
+      gateway_identifier: 'transit-jamnagar@plant-logistics.company.com',
+      secret_key: '••••••••••••••••••••••••••••••••',
+      is_enabled: true,
+      last_rotated_at: '2026-11-01'
+    },
+    {
+      id: 'a4444444-0000-0000-0000-000000000001',
+      site_tag: 'HAZIRA YARD',
+      gateway_name: 'Jio Telecom SMS Engine',
+      channel: 'SMS',
+      environment: 'STAGING',
+      gateway_identifier: 'HZTRN',
+      secret_key: '••••••••••••••••••••••••••••••••',
+      is_enabled: false,
+      last_rotated_at: '2026-10-02'
+    }
+  ]);
+
+  useEffect(() => {
+    fetchApi<{ success: boolean; gateways: any[] }>('/api/admin/gateways')
+      .then(res => {
+        if (res.gateways && res.gateways.length > 0) setGateways(res.gateways);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleToggleGateway = async (id: string, currentStatus: boolean) => {
+    const nextStatus = !currentStatus;
+    // Optimistic UI update
+    setGateways(prev => prev.map(g => g.id === id ? { ...g, is_enabled: nextStatus } : g));
+
+    try {
+      await fetchApi(`/api/admin/gateways/${id}/toggle`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_enabled: nextStatus })
+      });
+    } catch (err: any) {
+      alert(`Failed to update gateway: ${err.message}`);
+      // Revert on error
+      setGateways(prev => prev.map(g => g.id === id ? { ...g, is_enabled: currentStatus } : g));
+    }
+  };
+
   // Navigation & View State
   const [activeTab, setActiveTab] = useState<'PLANTS' | 'GATEWAYS' | 'ANALYTICS' | 'AUDIT'>('PLANTS');
   const [searchTerm, setSearchTerm] = useState('');
@@ -420,718 +505,104 @@ export default function SuperAdminSitesPage() {
   }, [plants, searchTerm, statusFilter]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-purple-600 selection:text-white">
-      {/* =====================================================================
-          GLOBAL TOAST NOTIFICATION
-      ===================================================================== */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3 rounded-xl bg-slate-900/90 backdrop-blur-xl border border-purple-500/40 text-white shadow-2xl shadow-purple-950/50"
-          >
-            <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
-            <span className="text-sm font-medium">{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* =====================================================================
-          HEADER SECTION (WITH SPANDAN IT BRANDING)
-      ===================================================================== */}
-      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800/80 px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          {/* Logo Container with 3D Gloss Accent */}
-          <div className="flex items-center gap-3.5 group cursor-pointer">
-            <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-900/80 via-slate-900 to-orange-950/60 p-1.5 border border-purple-500/30 shadow-lg shadow-purple-950/40 group-hover:border-orange-500/50 transition-all duration-300">
-              <Image
-                src="/Spandan IT.jpg"
-                alt="Spandan IT Peripherals"
-                width={40}
-                height={40}
-                className="w-full h-full object-contain rounded-xl"
-              />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
-            </div>
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold bg-gradient-to-r from-purple-400 via-orange-400 to-amber-300 bg-clip-text text-transparent">
-                  Spandan IT
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-950/80 border border-purple-500/40 text-purple-300">
-                  Super Admin
-                </span>
+                <span className="text-amber-400">🔑</span>
+                <h2 className="text-lg font-bold text-white tracking-wide">Encrypted Gateway Secret Vault</h2>
               </div>
-              <h1 className="text-xs text-slate-400 font-medium">Plant & Gateway Governance Engine</h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Manage WhatsApp Cloud API keys, telecom SMS DLT credentials, and toggle outbound communications.
+              </p>
             </div>
+            <span className="px-3 py-1 rounded-full text-xs font-mono font-medium bg-purple-950/60 text-purple-300 border border-purple-800/50 self-start sm:self-auto">
+              AES-256 Cloudflare Storage
+            </span>
           </div>
 
-          <div className="hidden lg:flex items-center h-6 w-px bg-slate-800" />
-
-          {/* Search Bar */}
-          <div className="relative hidden md:block w-80">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search plants, secrets, gateways, cities..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-slate-900/60 border border-slate-800 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/60 focus:ring-2 focus:ring-purple-500/20 transition-all"
-            />
-          </div>
-        </div>
-
-        {/* Header Right Actions */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => showToast('Syncing latest plant telemetry...')}
-            className="p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-all"
-            title="Refresh Telemetry"
-          >
-            <RefreshCw className="w-4 h-4 hover:rotate-180 transition-transform duration-500" />
-          </button>
-
-          <button
-            className="relative p-2 rounded-xl bg-slate-900/60 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-all"
-            title="Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full animate-ping" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full" />
-          </button>
-
-          <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-purple-600 to-orange-500 flex items-center justify-center font-bold text-xs text-white shadow-md">
-              SA
-            </div>
-            <div className="hidden xl:block text-left">
-              <p className="text-xs font-semibold text-slate-200">Enterprise Admin</p>
-              <p className="text-[10px] text-slate-400 font-mono">root@spandan-it.in</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* =====================================================================
-          SUB-HEADER CONTROLS & NAVIGATION TABS
-      ===================================================================== */}
-      <div className="px-6 py-4 bg-slate-900/40 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          {(
-            [
-              { key: 'PLANTS', label: 'Plants & Sites', icon: Building2 },
-              { key: 'GATEWAYS', label: 'Gateway Secrets', icon: KeyRound },
-              { key: 'ANALYTICS', label: 'Fleet Telemetry', icon: Activity },
-              { key: 'AUDIT', label: 'Security Audit Logs', icon: ShieldAlert },
-            ] as const
-          ).map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-purple-600 to-orange-500 text-white shadow-lg shadow-purple-950/40'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/80 border border-transparent'
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {gateways.map((g) => (
+              <div
+                key={g.id}
+                className={`rounded-xl border p-5 space-y-4 transition-all duration-200 ${
+                  g.is_enabled
+                    ? 'bg-slate-950/70 border-slate-800 shadow-sm'
+                    : 'bg-slate-950/40 border-slate-800/60 opacity-75'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsNewPlantModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-purple-600 hover:from-purple-500 to-purple-700 border border-purple-400/30 shadow-lg shadow-purple-950/50 hover:scale-[1.02] active:scale-[0.98] transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Provision Plant Site
-          </button>
-        </div>
-      </div>
-
-      {/* =====================================================================
-          MAIN DASHBOARD BODY
-      ===================================================================== */}
-      <main className="flex-1 p-6 space-y-6 max-w-[1720px] w-full mx-auto">
-        {/* ===================================================================
-            KPI SUMMARY CARDS (3D GLASSMORPHIC CARDS)
-        =================================================================== */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            {
-              title: 'Total Plants',
-              value: metrics.totalPlants,
-              subtitle: 'Multi-Tenant Units',
-              icon: Building2,
-              gradient: 'from-purple-900/50 via-slate-900 to-slate-950',
-              accent: 'text-purple-400',
-              border: 'border-purple-500/30',
-              trend: '+1 this quarter',
-            },
-            {
-              title: 'Active Sites',
-              value: metrics.activeSites,
-              subtitle: 'Healthy Operations',
-              icon: CheckCircle2,
-              gradient: 'from-emerald-950/50 via-slate-900 to-slate-950',
-              accent: 'text-emerald-400',
-              border: 'border-emerald-500/30',
-              trend: '100% online rate',
-            },
-            {
-              title: 'Gateway Secrets',
-              value: metrics.totalSecrets,
-              subtitle: 'Encrypted Vault Keys',
-              icon: KeyRound,
-              gradient: 'from-orange-950/50 via-slate-900 to-slate-950',
-              accent: 'text-orange-400',
-              border: 'border-orange-500/30',
-              trend: 'HMAC / Meta Tokens',
-            },
-            {
-              title: 'Fleet Vehicles',
-              value: metrics.totalVehicles,
-              subtitle: 'Real-time Linked',
-              icon: Car,
-              gradient: 'from-blue-950/50 via-slate-900 to-slate-950',
-              accent: 'text-blue-400',
-              border: 'border-blue-500/30',
-              trend: 'Cars, SUVs & Buses',
-            },
-            {
-              title: 'Online Gateways',
-              value: metrics.onlineGateways,
-              subtitle: 'WhatsApp & SMS APIs',
-              icon: Wifi,
-              gradient: 'from-teal-950/50 via-slate-900 to-slate-950',
-              accent: 'text-teal-400',
-              border: 'border-teal-500/30',
-              trend: 'Sub-40ms latency',
-            },
-            {
-              title: 'Offline / Alert',
-              value: metrics.offlineGateways,
-              subtitle: 'Needs Review',
-              icon: WifiOff,
-              gradient: 'from-rose-950/50 via-slate-900 to-slate-950',
-              accent: 'text-rose-400',
-              border: 'border-rose-500/30',
-              trend: metrics.offlineGateways > 0 ? '1 action pending' : 'Zero errors',
-            },
-          ].map((kpi, idx) => {
-            const Icon = kpi.icon;
-            return (
-              <motion.div
-                key={kpi.title}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-                className={`relative overflow-hidden rounded-2xl p-4 bg-gradient-to-br ${kpi.gradient} border ${kpi.border} shadow-xl shadow-black/40 hover:border-slate-600 transition-all duration-300 group`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
-                    {kpi.title}
-                  </span>
-                  <div className={`p-2 rounded-xl bg-slate-900/90 border border-slate-800 ${kpi.accent} group-hover:scale-110 transition-transform`}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-2xl font-black text-white tracking-tight">{kpi.value}</div>
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/60">
-                  <span className="text-[10px] text-slate-400 truncate">{kpi.subtitle}</span>
-                  <span className="text-[10px] font-medium text-slate-300 font-mono">{kpi.trend}</span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </section>
-
-        {/* ===================================================================
-            TAB 1: PLANTS & SITES MANAGEMENT TABLE + DETAIL DRAWER
-        =================================================================== */}
-        {activeTab === 'PLANTS' && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Table Section (2 Columns on XL) */}
-            <div className="xl:col-span-2 space-y-4">
-              <div className="bg-slate-900/70 border border-slate-800/80 rounded-2xl p-5 shadow-2xl backdrop-blur-xl">
-                {/* Table Filters & Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                {/* Header: Site Tag, Status & Toggle Button */}
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-purple-400" />
-                      Industrial Plant Partitions
-                    </h2>
-                    <p className="text-xs text-slate-400">
-                      Row-Level Security isolated manufacturing campuses & local transport setups.
-                    </p>
+                    <span className="text-[10px] font-mono font-bold tracking-wider text-purple-400 uppercase">
+                      {g.site_tag}
+                    </span>
+                    <h3 className="text-sm font-bold text-white mt-0.5">{g.gateway_name}</h3>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Status Filter */}
-                    <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-                      {(['ALL', 'ACTIVE', 'MAINTENANCE'] as const).map((st) => (
-                        <button
-                          key={st}
-                          onClick={() => setStatusFilter(st)}
-                          className={`px-3 py-1 rounded-lg font-medium transition-all ${
-                            statusFilter === st
-                              ? 'bg-purple-900/70 text-purple-300 border border-purple-500/40 shadow-sm'
-                              : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {st}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Status Badge */}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${
+                      g.is_enabled
+                        ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                        : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                    }`}>
+                      {g.is_enabled ? g.environment : 'DISABLED'}
+                    </span>
 
-                    {/* Export CSV */}
+                    {/* Interactive ON/OFF Switch */}
                     <button
-                      onClick={() => showToast('Exporting Plants Master (CSV)...')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition-all"
+                      type="button"
+                      onClick={() => handleToggleGateway(g.id, g.is_enabled)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        g.is_enabled ? 'bg-emerald-500' : 'bg-slate-700'
+                      }`}
+                      title={g.is_enabled ? 'Click to Disable Gateway' : 'Click to Enable Gateway'}
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      Export
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          g.is_enabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
                     </button>
                   </div>
                 </div>
 
-                {/* Table Container */}
-                <div className="overflow-x-auto rounded-xl border border-slate-800/80">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-semibold tracking-wider uppercase text-[10px]">
-                        <th className="py-3 px-4">Plant & Location</th>
-                        <th className="py-3 px-4">Plant Code</th>
-                        <th className="py-3 px-4">Site Manager</th>
-                        <th className="py-3 px-4 text-center">Vehicles</th>
-                        <th className="py-3 px-4 text-center">Auto-Allot</th>
-                        <th className="py-3 px-4 text-center">Status</th>
-                        <th className="py-3 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-sans">
-                      {filteredPlants.map((plant) => {
-                        const isSelected = selectedPlant?.id === plant.id;
-                        return (
-                          <tr
-                            key={plant.id}
-                            onClick={() => setSelectedPlant(plant)}
-                            className={`cursor-pointer transition-colors ${
-                              isSelected
-                                ? 'bg-purple-950/30 border-l-2 border-l-orange-500'
-                                : 'hover:bg-slate-800/40'
-                            }`}
-                          >
-                            <td className="py-3 px-4">
-                              <div className="font-semibold text-slate-100 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-purple-400" />
-                                {plant.siteName}
-                              </div>
-                              <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                                <MapPin className="w-3 h-3 text-slate-500" />
-                                {plant.locationCity}, {plant.state}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-4">
-                              <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-purple-300">
-                                {plant.siteCode}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4">
-                              <div className="text-slate-200 font-medium">{plant.managerName}</div>
-                              <div className="text-[11px] text-slate-400 font-mono">{plant.managerPhone}</div>
-                            </td>
-
-                            <td className="py-3 px-4 text-center">
-                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 font-semibold text-slate-200">
-                                <Car className="w-3 h-3 text-blue-400" />
-                                {plant.connectedVehicles}
-                              </div>
-                            </td>
-
-                            <td className="py-3 px-4 text-center">
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  plant.autoAllotment
-                                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
-                                    : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
-                                }`}
-                              >
-                                {plant.autoAllotment ? 'ENABLED' : 'MANUAL'}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 text-center">
-                              <span
-                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                                  plant.status === 'ACTIVE'
-                                    ? 'bg-teal-950/80 text-teal-300 border border-teal-500/40'
-                                    : 'bg-rose-950/80 text-rose-300 border border-rose-500/40'
-                                }`}
-                              >
-                                {plant.status}
-                              </span>
-                            </td>
-
-                            <td className="py-3 px-4 text-right">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedPlant(plant);
-                                  showToast(`Selected ${plant.siteCode} for telemetry.`);
-                                }}
-                                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Plant Detail & Location Map Panel (1 Column on XL) */}
-            <div className="space-y-6">
-              {selectedPlant ? (
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-5 backdrop-blur-xl">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                    <div>
-                      <span className="text-[10px] font-mono uppercase text-orange-400 tracking-wider font-semibold">
-                        Tenant Overview
-                      </span>
-                      <h3 className="text-base font-bold text-white">{selectedPlant.siteName}</h3>
-                    </div>
-                    <span className="text-xs font-mono px-2 py-1 rounded bg-slate-950 border border-slate-800 text-slate-300">
-                      {selectedPlant.siteCode}
-                    </span>
-                  </div>
-
-                  {/* Simulated Map View with 3D GPS Points */}
-                  <div className="relative h-44 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 flex flex-col items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[radial-gradient(#6B21A8_1px,transparent_1px)] [background-size:16px_16px] opacity-25" />
-                    <div className="relative z-10 flex flex-col items-center text-center">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-orange-500 flex items-center justify-center text-white shadow-xl shadow-purple-950/60 mb-2 animate-bounce">
-                        <MapPin className="w-6 h-6" />
-                      </div>
-                      <p className="text-xs font-semibold text-slate-200">
-                        {selectedPlant.locationCity}, {selectedPlant.state}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        GPS: {selectedPlant.coordinates.lat} N, {selectedPlant.coordinates.lng} E
-                      </p>
-                    </div>
-
-                    <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-slate-900/90 border border-slate-800 text-[10px] text-slate-400 font-mono">
-                      Real-time Geofenced
-                    </div>
-                  </div>
-
-                  {/* Plant Quick Metrics */}
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[11px]">Fleet Headroom</span>
-                      <p className="text-base font-bold text-white mt-0.5">
-                        {selectedPlant.connectedVehicles} Vehicles
-                      </p>
-                      <span className="text-[10px] text-emerald-400">
-                        {selectedPlant.totalCapacity} Total Seats
-                      </span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                      <span className="text-slate-400 text-[11px]">Approval Policy</span>
-                      <p className="text-base font-bold text-white mt-0.5">
-                        {selectedPlant.requireApproval ? 'Admin Gate' : 'Direct Allot'}
-                      </p>
-                      <span className="text-[10px] text-orange-400 font-mono">
-                        Auto: {selectedPlant.autoAllotment ? 'Active' : 'Off'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Settings Actions for Selected Plant */}
-                  <div className="pt-2 border-t border-slate-800/80 space-y-2.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300">Auto Vehicle Allotment</span>
-                      <button
-                        onClick={() => {
-                          setPlants((prev) =>
-                            prev.map((p) =>
-                              p.id === selectedPlant.id ? { ...p, autoAllotment: !p.autoAllotment } : p
-                            )
-                          );
-                          setSelectedPlant((prev) => (prev ? { ...prev, autoAllotment: !prev.autoAllotment } : null));
-                          showToast(`Toggled Auto-Allotment for ${selectedPlant.siteCode}`);
-                        }}
-                        className={`w-11 h-6 rounded-full transition-colors relative ${
-                          selectedPlant.autoAllotment ? 'bg-purple-600' : 'bg-slate-800'
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                            selectedPlant.autoAllotment ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-300">Require Transport Admin Approval</span>
-                      <button
-                        onClick={() => {
-                          setPlants((prev) =>
-                            prev.map((p) =>
-                              p.id === selectedPlant.id ? { ...p, requireApproval: !p.requireApproval } : p
-                            )
-                          );
-                          setSelectedPlant((prev) => (prev ? { ...prev, requireApproval: !prev.requireApproval } : null));
-                          showToast(`Toggled Approval Policy for ${selectedPlant.siteCode}`);
-                        }}
-                        className={`w-11 h-6 rounded-full transition-colors relative ${
-                          selectedPlant.requireApproval ? 'bg-orange-500' : 'bg-slate-800'
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
-                            selectedPlant.requireApproval ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center text-slate-400">
-                  Select a plant from the table to view real-time fleet configuration.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ===================================================================
-            TAB 2: GATEWAY SECRETS & API KEYS VAULT
-        =================================================================== */}
-        {activeTab === 'GATEWAYS' && (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-xl space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-5">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-orange-400" />
-                  Encrypted Gateway Secret Vault
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Manage WhatsApp Cloud API keys, telecom SMS DLT credentials, and webhook signing secrets.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-3 py-1 rounded-xl">
-                  AES-256 Cloudflare Storage
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {gateways.map((gw) => {
-                const isRevealed = revealedSecrets[gw.id] || false;
-                const isCopied = copiedId === gw.id;
-
-                return (
-                  <div
-                    key={gw.id}
-                    className="p-5 rounded-2xl bg-slate-950 border border-slate-800/80 hover:border-slate-700 transition-all space-y-4 shadow-xl"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-purple-400 font-semibold">
-                          {gw.siteName}
-                        </span>
-                        <h4 className="text-sm font-bold text-white mt-0.5">{gw.gatewayName}</h4>
-                      </div>
-                      <span
-                        className={`text-[9px] font-mono px-2 py-0.5 rounded-full uppercase font-bold ${
-                          gw.environment === 'PRODUCTION'
-                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-amber-950 text-amber-300 border border-amber-500/30'
-                        }`}
-                      >
-                        {gw.environment}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1.5 text-xs">
-                      <span className="text-[10px] text-slate-400 uppercase font-medium">Gateway Identifier</span>
-                      <div className="font-mono text-[11px] p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 truncate">
-                        {gw.gatewayIdentifier}
-                      </div>
-                    </div>
-
-                    {/* Secret Mask / Reveal Control */}
-                    <div className="space-y-1.5 text-xs">
-                      <span className="text-[10px] text-slate-400 uppercase font-medium">API Token / Secret Key</span>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 font-mono text-[11px] p-2 rounded-lg bg-slate-900 border border-slate-800 text-orange-300 truncate">
-                          {isRevealed ? gw.apiSecret : '••••••••••••••••••••••••••••••••'}
-                        </div>
-                        <button
-                          onClick={() => toggleSecretReveal(gw.id)}
-                          className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-                          title={isRevealed ? 'Mask Secret' : 'Reveal Secret'}
-                        >
-                          {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          onClick={() => handleCopySecret(gw.id, gw.apiSecret)}
-                          className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-                          title="Copy Token"
-                        >
-                          {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Footer Meta & Rotate Action */}
-                    <div className="pt-3 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Updated: {gw.lastUpdated}</span>
-                      <button
-                        onClick={() => {
-                          setActiveSecretForRotation(gw);
-                          setIsRotateSecretModalOpen(true);
-                        }}
-                        className="text-orange-400 hover:text-orange-300 font-semibold flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Rotate
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ===================================================================
-            TAB 3: FLEET TELEMETRY & ANALYTICS CHARTS
-        =================================================================== */}
-        {activeTab === 'ANALYTICS' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chart 1: Vehicle Booking Velocity */}
-            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between">
+                {/* Gateway Identifier */}
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-purple-400" />
-                    Trip Booking Velocity by Plant
-                  </h3>
-                  <p className="text-xs text-slate-400">Daily transit reservations processed across sites.</p>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-md border border-slate-800">
-                  Last 7 Days
-                </span>
-              </div>
-
-              {/* Visualized Bar Chart representation */}
-              <div className="h-56 flex items-end gap-3 pt-6 pb-2 border-b border-slate-800">
-                {[
-                  { day: 'Mon', vdr: 84, bh: 45, jam: 110 },
-                  { day: 'Tue', vdr: 92, bh: 52, jam: 125 },
-                  { day: 'Wed', vdr: 105, bh: 58, jam: 130 },
-                  { day: 'Thu', vdr: 115, bh: 64, jam: 142 },
-                  { day: 'Fri', vdr: 130, bh: 72, jam: 165 },
-                  { day: 'Sat', vdr: 70, bh: 35, jam: 90 },
-                  { day: 'Sun', vdr: 40, bh: 20, jam: 60 },
-                ].map((item) => (
-                  <div key={item.day} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                    <div className="w-full flex items-end justify-center gap-1 h-44">
-                      <div
-                        style={{ height: `${(item.vdr / 165) * 100}%` }}
-                        className="w-2.5 bg-purple-500 rounded-t-sm hover:opacity-80 transition-all"
-                        title={`Vadodara: ${item.vdr}`}
-                      />
-                      <div
-                        style={{ height: `${(item.bh / 165) * 100}%` }}
-                        className="w-2.5 bg-orange-500 rounded-t-sm hover:opacity-80 transition-all"
-                        title={`Bharuch: ${item.bh}`}
-                      />
-                      <div
-                        style={{ height: `${(item.jam / 165) * 100}%` }}
-                        className="w-2.5 bg-emerald-500 rounded-t-sm hover:opacity-80 transition-all"
-                        title={`Jamnagar: ${item.jam}`}
-                      />
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-mono">{item.day}</span>
+                  <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
+                    Gateway Identifier
+                  </label>
+                  <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-200 truncate">
+                    {g.gateway_identifier}
                   </div>
-                ))}
-              </div>
+                </div>
 
-              <div className="flex items-center justify-center gap-6 text-xs text-slate-300 pt-2 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-                  Vadodara Complex
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                  Dahej Unit
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  Jamnagar Works
-                </span>
-              </div>
-            </div>
-
-            {/* Chart 2: Gateway Health & Egress Latency */}
-            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-2xl backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between">
+                {/* Secret Key Mask */}
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-emerald-400" />
-                    Messaging Gateway Dispatch Latency
-                  </h3>
-                  <p className="text-xs text-slate-400">Cloudflare Queue external API execution speed.</p>
-                </div>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-md border border-emerald-500/30">
-                  99.98% Deliverability
-                </span>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                {[
-                  { name: 'Meta WhatsApp Cloud API (Vadodara)', latency: '124 ms', health: 99.8, color: 'bg-emerald-500' },
-                  { name: 'Airtel Telecom DLT SMS (Vadodara)', latency: '310 ms', health: 99.4, color: 'bg-teal-500' },
-                  { name: 'Meta WhatsApp Cloud API (Dahej)', latency: '142 ms', health: 99.6, color: 'bg-emerald-500' },
-                  { name: 'Resend Transactional SMTP (Jamnagar)', latency: '88 ms', health: 100.0, color: 'bg-purple-500' },
-                  { name: 'Jio Telecom SMS Engine (Hazira)', latency: 'Timeout / Unreachable', health: 0.0, color: 'bg-rose-500' },
-                ].map((stat) => (
-                  <div key={stat.name} className="space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-300 font-medium">{stat.name}</span>
-                      <span className="font-mono text-slate-400">{stat.latency}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden border border-slate-800">
-                      <div style={{ width: `${stat.health}%` }} className={`h-full ${stat.color} rounded-full`} />
+                  <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
+                    API Token / Secret Key
+                  </label>
+                  <div className="flex items-center justify-between bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400">
+                    <span className="tracking-widest">••••••••••••••••••••••••••••</span>
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <button type="button" className="hover:text-slate-200 p-0.5" title="Reveal Secret">👁</button>
+                      <button type="button" className="hover:text-slate-200 p-0.5" title="Copy Secret">📋</button>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Card Footer */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-500">
+                  <span>Updated: {g.last_rotated_at || '2026-10-28'}</span>
+                  <button type="button" className="text-purple-400 hover:text-purple-300 font-medium inline-flex items-center gap-1">
+                    🔄 Rotate
+                  </button>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
+        </div>
         )}
 
         {/* ===================================================================

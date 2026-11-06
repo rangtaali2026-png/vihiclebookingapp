@@ -21,6 +21,13 @@ export default function DispatchPage() {
   const [verifyingBooking, setVerifyingBooking] = useState<Booking | null>(null);
   const [scanEmpId, setScanEmpId] = useState<string>('');
   const [boardingMessage, setBoardingMessage] = useState<string | null>(null);
+  
+  // Notification Logs Modal State
+  const [activeNotificationLogs, setActiveNotificationLogs] = useState<{
+    reference: string;
+    logs: any[];
+  } | null>(null);
+  const [loadingLogs, setLoadingLogs] = useState<boolean>(false);
 
   const loadData = async () => {
     try {
@@ -86,6 +93,22 @@ export default function DispatchPage() {
       await loadData();
     } catch (err: any) {
       alert(`Error completing trip: ${err.message}`);
+    }
+  };
+
+  
+  const handleViewNotifications = async (bookingId: string, reference: string) => {
+    try {
+      setLoadingLogs(true);
+      const res = await fetchApi<{ success: boolean; notifications: any[] }>(`/api/dispatch/${bookingId}/notifications`);
+      setActiveNotificationLogs({
+        reference,
+        logs: res.notifications || []
+      });
+    } catch (err: any) {
+      alert(`Could not load alerts: ${err.message}`);
+    } finally {
+      setLoadingLogs(false);
     }
   };
 
@@ -264,6 +287,14 @@ export default function DispatchPage() {
                             Assign & Dispatch
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleViewNotifications(b.id, b.booking_reference)}
+                          className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                          title="View Dispatch Notifications"
+                        >
+                          📩 Alerts
+                        </button>
                         {b.status === 'DISPATCHED' && (
                           <>
                             <button

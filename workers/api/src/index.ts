@@ -1,74 +1,91 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Vehicle, CreateBookingPayload } from '@plant-transit/shared-types';
 
-export interface Env {
-  ENVIRONMENT?: string;
-  FRONTEND_URL?: string;
-  CORS_ORIGINS?: string;
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-  NOTIFICATION_QUEUE?: Queue;
-}
+// Helper function to dispatch SMS / WhatsApp notification and log
+async function sendDispatchNotification(
+  supabase: any,
+  env: Env,
+  booking: any,
+  vehicle: any,
+  driver: any,
+  passengers: any[]
+) {
+  const boardingUrl = `https://vehiclebookingapp.pages.dev/board?vehicle_id=${vehicle.id}`;
 
-const ALLOWED_ORIGINS = [
-  'https://vehiclebookingapp.pages.dev',
-  'http://localhost:3000',
-  'http://localhost:5173',
-];
+  // Check gateway status from gateway_vault
+  const { data: gateways } = await supabase
+    .from('gateway_vault')
+    .select('channel, is_enabled');
 
-function isAllowedOrigin(origin: string, env: Env): boolean {
-  if (!origin) return false;
-  if (
-    origin === 'https://vehiclebookingapp.pages.dev' ||
-    /^https:\/\/[a-z0-9-]+\.vehiclebookingapp\.pages\.dev$/.test(origin)
-  ) {
-    return true;
+  const isWhatsAppEnabled = gateways
+    ? gateways.some((g: any) => g.channel === 'WHATSAPP' && g.is_enabled)
+    : true;
+
+  const isSmsEnabled = gateways
+    ? gateways.some((g: any) => g.channel === 'SMS' && g.is_enabled)
+    : true;
+
+  for (const p of passengers) {
+    const phone = p.contact_number || '';
+    const message = `🚍 *Plant Transit Dispatch Update*
+` +
+      `Trip Ref: *${booking.booking_reference}*
+` +
+      `Route: ${booking.origin_location} → ${booking.destination_location}
+` +
+      `Vehicle: *${vehicle.registration_number}* (${vehicle.model})
+` +
+      `Driver: *${driver.name}* (${driver.mobile_number})
+` +
+      `Boarding Self Check-In: ${boardingUrl}
+
+` +
+      `Please report to your pickup point on time.`;
+
+    // 1. WhatsApp Channel
+    if (!isWhatsAppEnabled) {
+      await supabase.from('notifications_log').insert({
+        booking_id: booking.id,
+        recipient_type: 'PASSENGER',
+        recipient_identifier: phone || p.employee_id,
+        channel: 'WHATSAPP',
+        message_content: message,
+        status: 'DISABLED',
+        error_message: 'WhatsApp notification currently disabled in systems'
+      });
+    } else {
+      let status = 'SENT';
+      let errorMsg = null;
+
+      if (env.WEBHOOK_NOTIFICATION_URL) {
+        try {
+          await fetch(env.WEBHOOK_NOTIFICATION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone,
+              employee_id: p.employee_id,
+              passenger_name: p.employee_name,
+              message,
+              booking_reference: booking.booking_reference
+            })
+          });
+        } catch (err: any) {
+          status = 'FAILED';
+          errorMsg = err.message;
+        }
+      }
+
+      await supabase.from('notifications_log').insert({
+        booking_id: booking.id,
+        recipient_type: 'PASSENGER',
+        recipient_identifier: phone || p.employee_id,
+        channel: 'WHATSAPP',
+        message_content: message,
+        status: status,
+        error_message: errorMsg
+      });
+    }
   }
-  if (
-    origin === 'http://localhost:3000' ||
-    origin === 'http://localhost:5173' ||
-    origin.startsWith('http://localhost:')
-  ) {
-    return true;
-  }
-  if (env.CORS_ORIGINS) {
-    const list = env.CORS_ORIGINS.split(',').map((o) => o.trim());
-    if (list.includes('*') || list.includes(origin)) return true;
-  }
-  return false;
 }
-
-function getCorsHeaders(request: Request, env: Env): HeadersInit {
-  const origin = request.headers.get('Origin') || '';
-  const allowOrigin = isAllowedOrigin(origin, env)
-    ? origin
-    : (env.FRONTEND_URL || 'https://vehiclebookingapp.pages.dev');
-
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-    'Access-Control-Max-Age': '86400',
-  };
-}
-
-function jsonResponse(data: unknown, status = 200, headers: HeadersInit = {}): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  });
-}
-
-function getSupabase(env: Env) {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('Supabase environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) are missing.');
-  }
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-}
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const corsHeaders = getCorsHeaders(request, env);
@@ -138,6 +155,31 @@ export default {
           await supabase.from('drivers').update({ duty_status: 'ON_TRIP' }).eq('id', driver_id);
           await supabase.from('vehicles').update({ status: 'ON_TRIP' }).eq('id', vehicle_id);
         }
+
+        // Fetch trip details for real-time passenger notification
+        const { data: fullBooking } = await supabase
+          .from('bookings')
+          .select('*, booking_passengers(*), vehicles!bookings_allotted_vehicle_id_fkey(*), drivers!bookings_allotted_driver_id_fkey(*)')
+          .eq('id', bookingId)
+          .single();
+
+        if (fullBooking && fullBooking.booking_passengers?.length > 0) {
+          const vObj = fullBooking.vehicles || { id: vehicle_id, registration_number: 'Assigned', model: 'Plant Vehicle' };
+          const dObj = fullBooking.drivers || { name: 'Assigned Driver', mobile_number: 'N/A' };
+          
+          if (env.NOTIFICATION_QUEUE) {
+            await env.NOTIFICATION_QUEUE.send({
+              booking: fullBooking,
+              vehicle: vObj,
+              driver: dObj,
+              passengers: fullBooking.booking_passengers
+            });
+          } else {
+            // Direct execution fallback
+            await sendDispatchNotification(supabase, env, fullBooking, vObj, dObj, fullBooking.booking_passengers);
+          }
+        }
+
 
         return jsonResponse({
           success: true,
@@ -249,6 +291,56 @@ export default {
       }
 
       
+      
+      // GET /api/dispatch/:id/notifications
+      if (request.method === 'GET' && path.startsWith('/api/dispatch/') && path.endsWith('/notifications')) {
+        const bookingId = path.split('/')[3];
+        const { data: logs, error: logErr } = await supabase
+          .from('notifications_log')
+          .select('*')
+          .eq('booking_id', bookingId)
+          .order('created_at', { ascending: false });
+
+        if (logErr) throw logErr;
+        return jsonResponse({ success: true, notifications: logs || [] }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/admin/gateways
+      if (request.method === 'GET' && path === '/api/admin/gateways') {
+        const { data, error } = await supabase
+          .from('gateway_vault')
+          .select('*')
+          .order('site_tag');
+
+        if (error) throw error;
+        return jsonResponse({ success: true, gateways: data || [] }, 200, corsHeaders);
+      }
+
+      // PATCH /api/admin/gateways/:id/toggle
+      if (request.method === 'PATCH' && path.startsWith('/api/admin/gateways/') && path.endsWith('/toggle')) {
+        const gatewayId = path.split('/')[4];
+        const body = await request.json() as { is_enabled: boolean };
+
+        const { data: updated, error: updErr } = await supabase
+          .from('gateway_vault')
+          .update({
+            is_enabled: body.is_enabled,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', gatewayId)
+          .select()
+          .single();
+
+        if (updErr) throw updErr;
+
+        return jsonResponse({
+          success: true,
+          gateway: updated,
+          message: `${updated.gateway_name} has been ${updated.is_enabled ? 'ENABLED' : 'DISABLED'}.`
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -305,6 +397,56 @@ export default {
           success: true,
           vehicle: updated,
           qr_url: qrUrl
+        }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/dispatch/:id/notifications
+      if (request.method === 'GET' && path.startsWith('/api/dispatch/') && path.endsWith('/notifications')) {
+        const bookingId = path.split('/')[3];
+        const { data: logs, error: logErr } = await supabase
+          .from('notifications_log')
+          .select('*')
+          .eq('booking_id', bookingId)
+          .order('created_at', { ascending: false });
+
+        if (logErr) throw logErr;
+        return jsonResponse({ success: true, notifications: logs || [] }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/admin/gateways
+      if (request.method === 'GET' && path === '/api/admin/gateways') {
+        const { data, error } = await supabase
+          .from('gateway_vault')
+          .select('*')
+          .order('site_tag');
+
+        if (error) throw error;
+        return jsonResponse({ success: true, gateways: data || [] }, 200, corsHeaders);
+      }
+
+      // PATCH /api/admin/gateways/:id/toggle
+      if (request.method === 'PATCH' && path.startsWith('/api/admin/gateways/') && path.endsWith('/toggle')) {
+        const gatewayId = path.split('/')[4];
+        const body = await request.json() as { is_enabled: boolean };
+
+        const { data: updated, error: updErr } = await supabase
+          .from('gateway_vault')
+          .update({
+            is_enabled: body.is_enabled,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', gatewayId)
+          .select()
+          .single();
+
+        if (updErr) throw updErr;
+
+        return jsonResponse({
+          success: true,
+          gateway: updated,
+          message: `${updated.gateway_name} has been ${updated.is_enabled ? 'ENABLED' : 'DISABLED'}.`
         }, 200, corsHeaders);
       }
 
@@ -554,6 +696,16 @@ export default {
     } catch (err: any) {
       console.error('API Error:', err);
       return jsonResponse({ error: err.message || 'Internal Server Error' }, 500, corsHeaders);
+    }
+  },
+
+  // Cloudflare Queue Consumer for dispatch notifications
+  async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    for (const message of batch.messages) {
+      const { booking, vehicle, driver, passengers } = message.body;
+      await sendDispatchNotification(supabase, env, booking, vehicle, driver, passengers);
+      message.ack();
     }
   },
 };
