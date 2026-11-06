@@ -283,7 +283,7 @@ export default {
 
         let query = supabase
           .from('bookings')
-          .select('*, vehicles!allotted_vehicle_id(registration_number, make_model, category), booking_passengers(*)')
+          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(registration_number, make_model, category), booking_passengers(*)')
           .order('scheduled_start_time', { ascending: false })
           .limit(50);
 
