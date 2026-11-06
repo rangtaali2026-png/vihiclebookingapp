@@ -113,9 +113,9 @@ export default {
       // POST /api/fleet/vehicles
       if (request.method === 'POST' && path === '/api/fleet/vehicles') {
         const body = await request.json() as Partial<Vehicle>;
-        const { site_id, registration_number, make_model, category } = body;
+        const { site_id, registration_number, model, category } = body;
 
-        if (!site_id || !registration_number || !make_model || !category) {
+        if (!site_id || !registration_number || !model || !category) {
           return jsonResponse({ error: 'Missing required vehicle fields' }, 400, corsHeaders);
         }
 
@@ -131,7 +131,7 @@ export default {
         const { data, error } = await supabase.from('vehicles').insert([{
           site_id,
           registration_number: registration_number.trim().toUpperCase(),
-          make_model,
+          model,
           category,
           total_capacity,
           status: 'AVAILABLE',
@@ -283,7 +283,7 @@ export default {
 
         let query = supabase
           .from('bookings')
-          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(registration_number, make_model, category), booking_passengers(*)')
+          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity, status), booking_passengers(*)')
           .order('scheduled_start_time', { ascending: false })
           .limit(50);
 
