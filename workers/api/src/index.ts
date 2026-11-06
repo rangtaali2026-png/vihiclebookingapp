@@ -189,31 +189,46 @@ export default {
       }
 
       // POST /api/dispatch/verify-boarding
-      if (request.method === 'POST' && path === '/api/dispatch/verify-boarding') {
-        const { booking_id, employee_id } = await request.json() as { booking_id: string; employee_id: string };
+      if (request.method === 'POST' && (path === '/api/dispatch/verify-boarding' || path === '/api/dispatch/verify-boarding/')) {
+        const body = await request.json() as { booking_id: string; employee_id: string };
+        const { booking_id, employee_id } = body;
 
         if (!booking_id || !employee_id) {
           return jsonResponse({ error: 'booking_id and employee_id are required' }, 400, corsHeaders);
         }
 
-        const { data: passenger, error: passErr } = await supabase
+        const trimmedEmpId = employee_id.trim();
+
+        // 1. Check if passenger exists on manifest (case-insensitive)
+        const { data: passengers, error: findErr } = await supabase
+          .from('booking_passengers')
+          .select('*')
+          .eq('booking_id', booking_id)
+          .ilike('employee_id', trimmedEmpId);
+
+        if (findErr || !passengers || passengers.length === 0) {
+          return jsonResponse({ error: 'Passenger record not found for this trip' }, 404, corsHeaders);
+        }
+
+        const targetPassenger = passengers[0];
+
+        // 2. Mark passenger as boarded
+        const { data: updated, error: updErr } = await supabase
           .from('booking_passengers')
           .update({
             is_boarded: true,
             boarded_at: new Date().toISOString()
           })
-          .match({ booking_id, employee_id })
+          .eq('id', targetPassenger.id)
           .select()
           .single();
 
-        if (passErr || !passenger) {
-          return jsonResponse({ error: 'Passenger record not found for this trip' }, 404, corsHeaders);
-        }
+        if (updErr) throw updErr;
 
         return jsonResponse({
           success: true,
-          passenger,
-          message: `Verified and boarded: ${passenger.employee_name || passenger.employee_id}`
+          passenger: updated,
+          message: `Verified and boarded: ${updated.employee_name || updated.employee_id}`
         }, 200, corsHeaders);
       }
 
