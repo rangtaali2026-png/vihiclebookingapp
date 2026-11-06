@@ -212,8 +212,9 @@ export default {
 
         const targetPassenger = passengers[0];
 
-        // 2. Mark passenger as boarded
-        const { data: updated, error: updErr } = await supabase
+        // 2. Mark passenger as boarded with schema fallback
+        let updated = null;
+        let { data, error: updErr } = await supabase
           .from('booking_passengers')
           .update({
             is_boarded: true,
@@ -222,6 +223,21 @@ export default {
           .eq('id', targetPassenger.id)
           .select()
           .single();
+
+        if (updErr && updErr.message.includes('boarded_at')) {
+          // Fallback if boarded_at column is missing in schema cache
+          const fallbackRes = await supabase
+            .from('booking_passengers')
+            .update({ is_boarded: true })
+            .eq('id', targetPassenger.id)
+            .select()
+            .single();
+          data = fallbackRes.data;
+          updErr = fallbackRes.error;
+        }
+
+        if (updErr) throw updErr;
+        updated = data;
 
         if (updErr) throw updErr;
 
