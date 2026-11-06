@@ -9,6 +9,7 @@ export type BookingStatus =
 export type VehicleCategory = 'SEDAN_4' | 'MPV_6' | 'BUS_42' | 'BUS_52';
 export type BookingType = 'PRIVATE' | 'SHARED';
 export type VehicleStatus = 'AVAILABLE' | 'ON_TRIP' | 'MAINTENANCE' | 'DECOMMISSIONED';
+export type DriverDutyStatus = 'AVAILABLE' | 'ON_TRIP' | 'OFF_DUTY' | 'ON_LEAVE';
 
 export interface Vehicle {
   id: string;
@@ -27,6 +28,19 @@ export interface Vehicle {
   updated_at: string;
 }
 
+export interface Driver {
+  id: string;
+  site_id: string;
+  name: string;
+  mobile_number: string;
+  license_number: string;
+  license_expiry?: string;
+  duty_status: DriverDutyStatus;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BookingPassenger {
   id?: string;
   booking_id?: string;
@@ -37,6 +51,8 @@ export interface BookingPassenger {
   pickup_point: string;
   drop_point: string;
   seat_number?: number;
+  is_boarded?: boolean;
+  boarded_at?: string;
   created_at?: string;
 }
 
@@ -63,6 +79,7 @@ export interface Booking {
   created_at: string;
   updated_at: string;
   vehicles?: Vehicle | null;
+  drivers?: Driver | null;
   booking_passengers?: BookingPassenger[];
 }
 
@@ -78,4 +95,10 @@ export interface CreateBookingPayload {
   destination_location: string;
   purpose?: string;
   passengers: Omit<BookingPassenger, 'id' | 'booking_id' | 'created_at'>[];
+}
+
+export interface DispatchAssignPayload {
+  vehicle_id: string;
+  driver_id: string;
+  status?: 'APPROVED' | 'DISPATCHED';
 }

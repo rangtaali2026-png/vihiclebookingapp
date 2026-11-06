@@ -1,0 +1,478 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { fetchApi } from '@/lib/api';
+import type { Booking, Vehicle, Driver, BookingPassenger } from '@plant-transit/shared-types';
+
+export default function DispatchPage() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // Assignment Modal State
+  const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
+  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Boarding Verification State
+  const [verifyingBooking, setVerifyingBooking] = useState<Booking | null>(null);
+  const [scanEmpId, setScanEmpId] = useState<string>('');
+  const [boardingMessage, setBoardingMessage] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [bookingsRes, vehiclesRes, driversRes] = await Promise.all([
+        fetchApi<{ success: boolean; bookings: Booking[] }>('/api/bookings'),
+        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/fleet/vehicles'),
+        fetchApi<{ success: boolean; drivers: Driver[] }>('/api/drivers?site_id=11111111-1111-1111-1111-111111111111'),
+      ]);
+
+      setBookings(bookingsRes.bookings || []);
+      setVehicles(vehiclesRes.vehicles || []);
+      setDrivers(driversRes.drivers || []);
+    } catch (err: any) {
+      console.error('Failed to load dispatch data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const openAssignModal = (b: Booking) => {
+    setAssigningBooking(b);
+    setSelectedVehicleId(b.allotted_vehicle_id || (vehicles.length > 0 ? vehicles[0].id : ''));
+    setSelectedDriverId(b.allotted_driver_id || (drivers.length > 0 ? drivers[0].id : ''));
+  };
+
+  const handleAssignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assigningBooking || !selectedVehicleId || !selectedDriverId) return;
+
+    try {
+      setSubmitting(true);
+      await fetchApi(`/api/dispatch/${assigningBooking.id}/assign`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          vehicle_id: selectedVehicleId,
+          driver_id: selectedDriverId,
+          status: 'DISPATCHED',
+        }),
+      });
+
+      alert(`Booking ${assigningBooking.booking_reference} successfully dispatched!`);
+      setAssigningBooking(null);
+      await loadData();
+    } catch (err: any) {
+      alert(`Assignment failed: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCompleteTrip = async (bookingId: string, reference: string) => {
+    const confirm = window.confirm(`Mark trip ${reference} as COMPLETED and return vehicle/driver to available inventory?`);
+    if (!confirm) return;
+
+    try {
+      await fetchApi(`/api/dispatch/${bookingId}/complete`, { method: 'PATCH' });
+      alert(`Trip ${reference} completed!`);
+      await loadData();
+    } catch (err: any) {
+      alert(`Error completing trip: ${err.message}`);
+    }
+  };
+
+  const handleVerifyBoarding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifyingBooking || !scanEmpId) return;
+
+    try {
+      setBoardingMessage(null);
+      const res = await fetchApi<{ success: boolean; message: string }>('/api/dispatch/verify-boarding', {
+        method: 'POST',
+        body: JSON.stringify({
+          booking_id: verifyingBooking.id,
+          employee_id: scanEmpId.trim().toUpperCase(),
+        }),
+      });
+
+      setBoardingMessage(`✓ ${res.message}`);
+      setScanEmpId('');
+      await loadData();
+    } catch (err: any) {
+      setBoardingMessage(`✕ ${err.message}`);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Navigation & Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+          <div>
+            <div className="flex items-center gap-2">
+              <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-800">
+                ← Home
+              </Link>
+              <span className="text-slate-300">/</span>
+              <span className="text-sm font-semibold text-slate-800">Dispatch Operations</span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">Admin Dispatch & Operations Console</h1>
+            <p className="text-sm text-slate-600">Allocate drivers, assign fleet assets, and verify passenger boarding manifests</p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/bookings"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            >
+              Booking Engine →
+            </Link>
+            <Link
+              href="/fleet"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            >
+              Fleet Assets →
+            </Link>
+          </div>
+        </div>
+
+        {/* Quick Driver & Fleet Operational Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Allotment</p>
+            <p className="text-2xl font-bold text-amber-600 mt-1">
+              {bookings.filter((b) => b.status === 'PENDING').length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Dispatched</p>
+            <p className="text-2xl font-bold text-purple-600 mt-1">
+              {bookings.filter((b) => b.status === 'DISPATCHED').length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Drivers</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">
+              {drivers.filter((d) => d.duty_status === 'AVAILABLE').length} / {drivers.length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Vehicles</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">
+              {vehicles.filter((v) => v.status === 'AVAILABLE').length} / {vehicles.length}
+            </p>
+          </div>
+        </div>
+
+        {/* Dispatch Operations Table */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <h3 className="text-sm font-semibold text-slate-800">
+              Trip Dispatch & Asset Allocation Queue ({bookings.length})
+            </h3>
+            <button
+              onClick={loadData}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Refresh Queue
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="p-8 text-center text-sm text-slate-500">Loading operational trips...</div>
+          ) : bookings.length === 0 ? (
+            <div className="p-8 text-center text-sm text-slate-500">No operational trips found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500">
+                    <th className="py-3 px-4">Ref #</th>
+                    <th className="py-3 px-4">Route & Time</th>
+                    <th className="py-3 px-4">Allocated Vehicle</th>
+                    <th className="py-3 px-4">Allocated Driver</th>
+                    <th className="py-3 px-4">Manifest</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Dispatch Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {bookings.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50/75 transition">
+                      <td className="py-3 px-4">
+                        <span className="font-mono font-medium text-slate-900">{b.booking_reference}</span>
+                        <div className="text-xs text-slate-500">{b.booking_type} • {b.target_category}</div>
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        <div className="font-medium text-slate-800">{b.origin_location} → {b.destination_location}</div>
+                        <div className="text-slate-500 mt-0.5">{new Date(b.scheduled_start_time).toLocaleString()}</div>
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        {b.vehicles ? (
+                          <div className="font-medium text-slate-900">
+                            {b.vehicles.registration_number} <span className="text-slate-500">({b.vehicles.model})</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Not Assigned</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-xs">
+                        {b.drivers ? (
+                          <div>
+                            <div className="font-medium text-slate-900">{b.drivers.name}</div>
+                            <div className="text-slate-500 font-mono">{b.drivers.mobile_number}</div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 italic">Not Assigned</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => setVerifyingBooking(b)}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          👥 {b.booking_passengers?.filter(p => p.is_boarded).length || 0}/{b.passenger_count} Boarded
+                        </button>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          b.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
+                          b.status === 'APPROVED' ? 'bg-blue-100 text-blue-800' :
+                          b.status === 'DISPATCHED' ? 'bg-purple-100 text-purple-800' :
+                          b.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                          'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-2">
+                        {b.status === 'PENDING' && (
+                          <button
+                            type="button"
+                            onClick={() => openAssignModal(b)}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-blue-700"
+                          >
+                            Assign & Dispatch
+                          </button>
+                        )}
+                        {b.status === 'DISPATCHED' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setVerifyingBooking(b)}
+                              className="rounded border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                            >
+                              Verify Rider
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteTrip(b.id, b.booking_reference)}
+                              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+                            >
+                              Complete Trip
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* Driver & Vehicle Allotment Modal */}
+      {assigningBooking && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Assign Fleet Assets: {assigningBooking.booking_reference}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Required: {assigningBooking.target_category} • {assigningBooking.passenger_count} Passenger(s)
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssigningBooking(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                  Select Vehicle
+                </label>
+                <select
+                  required
+                  value={selectedVehicleId}
+                  onChange={(e) => setSelectedVehicleId(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">-- Choose Vehicle --</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.registration_number} ({v.model}) - {v.seat_capacity} seats [{v.status}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                  Select Plant Driver
+                </label>
+                <select
+                  required
+                  value={selectedDriverId}
+                  onChange={(e) => setSelectedDriverId(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">-- Choose Driver --</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} ({d.mobile_number}) - [{d.duty_status}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setAssigningBooking(null)}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {submitting ? 'Dispatching...' : 'Confirm & Dispatch Trip'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Boarding Verification & Scanner Modal */}
+      {verifyingBooking && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  QR Boarding Verification: {verifyingBooking.booking_reference}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Scan badge or enter Employee ID to verify boarding
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyingBooking(null);
+                  setBoardingMessage(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleVerifyBoarding} className="flex gap-2">
+              <input
+                type="text"
+                required
+                placeholder="Scan / Enter Employee ID (e.g. EMP-1001)"
+                value={scanEmpId}
+                onChange={(e) => setScanEmpId(e.target.value)}
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm uppercase"
+              />
+              <button
+                type="submit"
+                className="rounded-md bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700"
+              >
+                Verify Rider
+              </button>
+            </form>
+
+            {boardingMessage && (
+              <div className={`p-2.5 rounded-lg text-xs font-medium ${
+                boardingMessage.startsWith('✓') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {boardingMessage}
+              </div>
+            )}
+
+            {/* Live Boarding Manifest */}
+            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <tr>
+                    <th className="p-2">Emp ID</th>
+                    <th className="p-2">Name</th>
+                    <th className="p-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {verifyingBooking.booking_passengers?.map((p, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="p-2 font-mono font-medium text-slate-900">{p.employee_id}</td>
+                      <td className="p-2 text-slate-700">{p.employee_name || '—'}</td>
+                      <td className="p-2">
+                        {p.is_boarded ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                            ✓ Boarded
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                            Awaiting
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyingBooking(null);
+                  setBoardingMessage(null);
+                }}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                Close Scanner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

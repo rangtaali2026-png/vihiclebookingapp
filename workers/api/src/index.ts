@@ -96,6 +96,127 @@ export default {
 
       // --- FLEET INVENTORY ENDPOINTS ---
 
+      
+      // GET /api/drivers?site_id=...
+      if (request.method === 'GET' && path === '/api/drivers') {
+        const siteId = url.searchParams.get('site_id');
+        let query = supabase.from('drivers').select('*').order('name');
+        if (siteId) query = query.eq('site_id', siteId);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return jsonResponse({ success: true, drivers: data }, 200, corsHeaders);
+      }
+
+      // PATCH /api/dispatch/:id/assign
+      if (request.method === 'PATCH' && path.startsWith('/api/dispatch/') && path.endsWith('/assign')) {
+        const bookingId = path.split('/')[3];
+        const body = await request.json() as { vehicle_id: string; driver_id: string; status?: string };
+        const { vehicle_id, driver_id, status = 'DISPATCHED' } = body;
+
+        if (!vehicle_id || !driver_id) {
+          return jsonResponse({ error: 'vehicle_id and driver_id are required' }, 400, corsHeaders);
+        }
+
+        // Update booking allotment
+        const { data: updatedBooking, error: bookingErr } = await supabase
+          .from('bookings')
+          .update({
+            allotted_vehicle_id: vehicle_id,
+            allotted_driver_id: driver_id,
+            status: status,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', bookingId)
+          .select()
+          .single();
+
+        if (bookingErr) throw bookingErr;
+
+        // Mark driver and vehicle as ON_TRIP if dispatched
+        if (status === 'DISPATCHED') {
+          await supabase.from('drivers').update({ duty_status: 'ON_TRIP' }).eq('id', driver_id);
+          await supabase.from('vehicles').update({ status: 'ON_TRIP' }).eq('id', vehicle_id);
+        }
+
+        return jsonResponse({
+          success: true,
+          booking: updatedBooking,
+          message: `Booking successfully assigned and marked as ${status}.`
+        }, 200, corsHeaders);
+      }
+
+      // PATCH /api/dispatch/:id/complete
+      if (request.method === 'PATCH' && path.startsWith('/api/dispatch/') && path.endsWith('/complete')) {
+        const bookingId = path.split('/')[3];
+
+        const { data: booking, error: fetchErr } = await supabase
+          .from('bookings')
+          .select('id, allotted_vehicle_id, allotted_driver_id')
+          .eq('id', bookingId)
+          .single();
+
+        if (fetchErr || !booking) {
+          return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+        }
+
+        // Complete booking
+        const { data: updatedBooking, error: updateErr } = await supabase
+          .from('bookings')
+          .update({
+            status: 'COMPLETED',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', bookingId)
+          .select()
+          .single();
+
+        if (updateErr) throw updateErr;
+
+        // Free vehicle and driver back to AVAILABLE
+        if (booking.allotted_vehicle_id) {
+          await supabase.from('vehicles').update({ status: 'AVAILABLE' }).eq('id', booking.allotted_vehicle_id);
+        }
+        if (booking.allotted_driver_id) {
+          await supabase.from('drivers').update({ duty_status: 'AVAILABLE' }).eq('id', booking.allotted_driver_id);
+        }
+
+        return jsonResponse({
+          success: true,
+          booking: updatedBooking,
+          message: 'Trip completed successfully. Assets returned to available inventory.'
+        }, 200, corsHeaders);
+      }
+
+      // POST /api/dispatch/verify-boarding
+      if (request.method === 'POST' && path === '/api/dispatch/verify-boarding') {
+        const { booking_id, employee_id } = await request.json() as { booking_id: string; employee_id: string };
+
+        if (!booking_id || !employee_id) {
+          return jsonResponse({ error: 'booking_id and employee_id are required' }, 400, corsHeaders);
+        }
+
+        const { data: passenger, error: passErr } = await supabase
+          .from('booking_passengers')
+          .update({
+            is_boarded: true,
+            boarded_at: new Date().toISOString()
+          })
+          .match({ booking_id, employee_id })
+          .select()
+          .single();
+
+        if (passErr || !passenger) {
+          return jsonResponse({ error: 'Passenger record not found for this trip' }, 404, corsHeaders);
+        }
+
+        return jsonResponse({
+          success: true,
+          passenger,
+          message: `Verified and boarded: ${passenger.employee_name || passenger.employee_id}`
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles?site_id=...&category=...
       if (request.method === 'GET' && path === '/api/fleet/vehicles') {
         const siteId = url.searchParams.get('site_id');
@@ -325,7 +446,7 @@ export default {
 
         let query = supabase
           .from('bookings')
-          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity, status), booking_passengers(*)')
+          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity, status), drivers!bookings_allotted_driver_id_fkey(id, name, mobile_number, license_number, duty_status), booking_passengers(*)')
           .order('scheduled_start_time', { ascending: false })
           .limit(50);
 

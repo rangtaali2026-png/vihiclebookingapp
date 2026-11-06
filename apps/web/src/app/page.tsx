@@ -8,13 +8,24 @@ export default function HomePage() {
           PT
         </div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Vehicle booking management systems
+          Vehicle Booking Management System
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Enterprise Vehicle Booking Platform
+          Enterprise Fleet & Transit Operations
         </p>
 
         <div className="mt-8 grid grid-cols-1 gap-3 text-left">
+          <Link
+            href="/dispatch"
+            className="group flex items-center justify-between p-4 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-purple-50 transition"
+          >
+            <div>
+              <p className="text-sm font-semibold text-purple-900">Admin Dispatch Console</p>
+              <p className="text-xs text-purple-700 mt-0.5">Driver & fleet allotment, trip dispatch, and QR rider verification</p>
+            </div>
+            <span className="text-purple-600 font-bold group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
+
           <Link
             href="/bookings"
             className="group flex items-center justify-between p-4 rounded-xl border border-blue-100 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-200 transition"
