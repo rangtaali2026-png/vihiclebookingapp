@@ -21,7 +21,7 @@ export default function BookingsPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   // Form State
-  const [siteId] = useState('00000000-0000-0000-0000-000000000001');
+  const [siteId] = useState('11111111-1111-1111-1111-111111111111');
   const [requesterId] = useState('00000000-0000-0000-0000-000000000002');
   const [bookingType, setBookingType] = useState<BookingType>('PRIVATE');
   const [targetCategory, setTargetCategory] = useState<VehicleCategory>('SEDAN_4');

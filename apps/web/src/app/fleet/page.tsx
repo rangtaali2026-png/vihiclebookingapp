@@ -11,7 +11,7 @@ export default function FleetPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Form states
-  const [siteId, setSiteId] = useState<string>('00000000-0000-0000-0000-000000000001');
+  const [siteId, setSiteId] = useState<string>('11111111-1111-1111-1111-111111111111');
   const [registrationNumber, setRegistrationNumber] = useState<string>('');
   const [makeModel, setMakeModel] = useState<string>('');
   const [category, setCategory] = useState<VehicleCategory>('SEDAN_4');
