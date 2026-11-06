@@ -16,6 +16,16 @@ export default function HomePage() {
 
         <div className="mt-8 grid grid-cols-1 gap-3 text-left">
           <Link
+            href="/analytics"
+            className="group flex items-center justify-between p-4 rounded-xl border border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50 hover:border-emerald-200 transition"
+          >
+            <div>
+              <p className="text-sm font-semibold text-emerald-900">Operations & Fleet Analytics</p>
+              <p className="text-xs text-emerald-700 mt-0.5">Asset utilization rates, trip completion telemetry, and demand breakdown</p>
+            </div>
+            <span className="text-emerald-600 font-bold group-hover:translate-x-1 transition-transform">→</span>
+          </Link>
+          <Link
             href="/dispatch"
             className="group flex items-center justify-between p-4 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-purple-50 transition"
           >

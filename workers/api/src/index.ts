@@ -341,6 +341,89 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // GET /api/analytics/metrics?site_id=...
+      if (request.method === 'GET' && path === '/api/analytics/metrics') {
+        const siteId = url.searchParams.get('site_id');
+
+        // 1. Fetch bookings
+        let bQuery = supabase
+          .from('bookings')
+          .select('id, site_id, status, booking_type, target_category, scheduled_start_time, scheduled_end_time, passenger_count, allotted_vehicle_id');
+        if (siteId) bQuery = bQuery.eq('site_id', siteId);
+        const { data: bookings, error: bErr } = await bQuery;
+        if (bErr) throw bErr;
+
+        // 2. Fetch fleet vehicles
+        let vQuery = supabase.from('vehicles').select('id, registration_number, model, category, seat_capacity, status, site_id');
+        if (siteId) vQuery = vQuery.eq('site_id', siteId);
+        const { data: vehicles, error: vErr } = await vQuery;
+        if (vErr) throw vErr;
+
+        // 3. Fetch drivers
+        let dQuery = supabase.from('drivers').select('id, name, duty_status, site_id');
+        if (siteId) dQuery = dQuery.eq('site_id', siteId);
+        const { data: drivers, error: dErr } = await dQuery;
+        if (dErr) throw dErr;
+
+        const totalBookings = bookings?.length || 0;
+        const completedTrips = bookings?.filter((b: any) => b.status === 'COMPLETED').length || 0;
+        const activeDispatched = bookings?.filter((b: any) => b.status === 'DISPATCHED').length || 0;
+        const cancelledTrips = bookings?.filter((b: any) => b.status === 'CANCELLED').length || 0;
+
+        const totalPassengers = bookings?.reduce((acc: number, b: any) => acc + (b.passenger_count || 1), 0) || 0;
+        const totalVehicles = vehicles?.length || 0;
+        const totalDrivers = drivers?.length || 0;
+        const activeVehicles = vehicles?.filter((v: any) => v.status === 'ON_TRIP').length || 0;
+        const availableVehicles = vehicles?.filter((v: any) => v.status === 'AVAILABLE').length || 0;
+
+        // Utilization percentage calculation
+        const fleetUtilizationRate = totalVehicles > 0 
+          ? Math.round((activeVehicles / totalVehicles) * 100) 
+          : 0;
+
+        // Category breakdown
+        const categoryBreakdown: Record<string, number> = {};
+        bookings?.forEach((b: any) => {
+          categoryBreakdown[b.target_category] = (categoryBreakdown[b.target_category] || 0) + 1;
+        });
+
+        // Vehicle specific trip counts
+        const vehicleTripCounts: Record<string, number> = {};
+        bookings?.forEach((b: any) => {
+          if (b.allotted_vehicle_id) {
+            vehicleTripCounts[b.allotted_vehicle_id] = (vehicleTripCounts[b.allotted_vehicle_id] || 0) + 1;
+          }
+        });
+
+        const vehicleStats = vehicles?.map((v: any) => ({
+          id: v.id,
+          registration_number: v.registration_number,
+          model: v.model,
+          seat_capacity: v.seat_capacity,
+          status: v.status,
+          total_trips: vehicleTripCounts[v.id] || 0,
+        })) || [];
+
+        return jsonResponse({
+          success: true,
+          metrics: {
+            total_bookings: totalBookings,
+            completed_trips: completedTrips,
+            active_dispatched: activeDispatched,
+            cancelled_trips: cancelledTrips,
+            total_passengers_served: totalPassengers,
+            total_fleet_assets: totalVehicles,
+            available_vehicles: availableVehicles,
+            active_vehicles_on_trip: activeVehicles,
+            total_drivers: totalDrivers,
+            fleet_utilization_rate: fleetUtilizationRate,
+            category_breakdown: categoryBreakdown,
+            vehicle_stats: vehicleStats
+          }
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -447,6 +530,89 @@ export default {
           success: true,
           gateway: updated,
           message: `${updated.gateway_name} has been ${updated.is_enabled ? 'ENABLED' : 'DISABLED'}.`
+        }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/analytics/metrics?site_id=...
+      if (request.method === 'GET' && path === '/api/analytics/metrics') {
+        const siteId = url.searchParams.get('site_id');
+
+        // 1. Fetch bookings
+        let bQuery = supabase
+          .from('bookings')
+          .select('id, site_id, status, booking_type, target_category, scheduled_start_time, scheduled_end_time, passenger_count, allotted_vehicle_id');
+        if (siteId) bQuery = bQuery.eq('site_id', siteId);
+        const { data: bookings, error: bErr } = await bQuery;
+        if (bErr) throw bErr;
+
+        // 2. Fetch fleet vehicles
+        let vQuery = supabase.from('vehicles').select('id, registration_number, model, category, seat_capacity, status, site_id');
+        if (siteId) vQuery = vQuery.eq('site_id', siteId);
+        const { data: vehicles, error: vErr } = await vQuery;
+        if (vErr) throw vErr;
+
+        // 3. Fetch drivers
+        let dQuery = supabase.from('drivers').select('id, name, duty_status, site_id');
+        if (siteId) dQuery = dQuery.eq('site_id', siteId);
+        const { data: drivers, error: dErr } = await dQuery;
+        if (dErr) throw dErr;
+
+        const totalBookings = bookings?.length || 0;
+        const completedTrips = bookings?.filter((b: any) => b.status === 'COMPLETED').length || 0;
+        const activeDispatched = bookings?.filter((b: any) => b.status === 'DISPATCHED').length || 0;
+        const cancelledTrips = bookings?.filter((b: any) => b.status === 'CANCELLED').length || 0;
+
+        const totalPassengers = bookings?.reduce((acc: number, b: any) => acc + (b.passenger_count || 1), 0) || 0;
+        const totalVehicles = vehicles?.length || 0;
+        const totalDrivers = drivers?.length || 0;
+        const activeVehicles = vehicles?.filter((v: any) => v.status === 'ON_TRIP').length || 0;
+        const availableVehicles = vehicles?.filter((v: any) => v.status === 'AVAILABLE').length || 0;
+
+        // Utilization percentage calculation
+        const fleetUtilizationRate = totalVehicles > 0 
+          ? Math.round((activeVehicles / totalVehicles) * 100) 
+          : 0;
+
+        // Category breakdown
+        const categoryBreakdown: Record<string, number> = {};
+        bookings?.forEach((b: any) => {
+          categoryBreakdown[b.target_category] = (categoryBreakdown[b.target_category] || 0) + 1;
+        });
+
+        // Vehicle specific trip counts
+        const vehicleTripCounts: Record<string, number> = {};
+        bookings?.forEach((b: any) => {
+          if (b.allotted_vehicle_id) {
+            vehicleTripCounts[b.allotted_vehicle_id] = (vehicleTripCounts[b.allotted_vehicle_id] || 0) + 1;
+          }
+        });
+
+        const vehicleStats = vehicles?.map((v: any) => ({
+          id: v.id,
+          registration_number: v.registration_number,
+          model: v.model,
+          seat_capacity: v.seat_capacity,
+          status: v.status,
+          total_trips: vehicleTripCounts[v.id] || 0,
+        })) || [];
+
+        return jsonResponse({
+          success: true,
+          metrics: {
+            total_bookings: totalBookings,
+            completed_trips: completedTrips,
+            active_dispatched: activeDispatched,
+            cancelled_trips: cancelledTrips,
+            total_passengers_served: totalPassengers,
+            total_fleet_assets: totalVehicles,
+            available_vehicles: availableVehicles,
+            active_vehicles_on_trip: activeVehicles,
+            total_drivers: totalDrivers,
+            fleet_utilization_rate: fleetUtilizationRate,
+            category_breakdown: categoryBreakdown,
+            vehicle_stats: vehicleStats
+          }
         }, 200, corsHeaders);
       }
 
