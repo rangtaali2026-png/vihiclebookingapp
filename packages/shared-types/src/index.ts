@@ -14,11 +14,15 @@ export interface Vehicle {
   id: string;
   site_id: string;
   registration_number: string;
-  make_model: string;
+  model: string;
   category: VehicleCategory;
-  total_capacity: number;
-  is_active: boolean;
+  seat_capacity: number;
   status: VehicleStatus;
+  default_driver_id?: string | null;
+  qr_code_uuid?: string | null;
+  qr_code_url?: string | null;
+  qr_generated_at?: string | null;
+  qr_version?: number;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +62,8 @@ export interface Booking {
   created_by_admin_id?: string | null;
   created_at: string;
   updated_at: string;
+  vehicles?: Vehicle | null;
+  booking_passengers?: BookingPassenger[];
 }
 
 export interface CreateBookingPayload {

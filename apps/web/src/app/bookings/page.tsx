@@ -235,7 +235,7 @@ export default function BookingsPage() {
                   <option value="">Auto-allocate Best Fit</option>
                   {vehicles.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.registration_number} - {v.make_model} ({v.total_capacity} seats)
+                      {v.registration_number} - {v.model} ({v.seat_capacity} seats)
                     </option>
                   ))}
                 </select>

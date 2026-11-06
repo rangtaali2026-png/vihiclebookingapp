@@ -45,7 +45,7 @@ export default function FleetPage() {
         body: JSON.stringify({
           site_id: siteId,
           registration_number: registrationNumber,
-          make_model: makeModel,
+          model: makeModel, seat_capacity: 4,
           category,
         }),
       });
@@ -188,13 +188,13 @@ export default function FleetPage() {
                   {vehicles.map((v) => (
                     <tr key={v.id} className="hover:bg-slate-50/75 transition">
                       <td className="py-3 px-4 font-mono font-medium text-slate-900">{v.registration_number}</td>
-                      <td className="py-3 px-4 text-slate-700">{v.make_model}</td>
+                      <td className="py-3 px-4 text-slate-700">{v.model}</td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
                           {v.category}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 font-medium">{v.total_capacity}</td>
+                      <td className="py-3 px-4 text-slate-600 font-medium">{v.seat_capacity}</td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                           v.status === 'AVAILABLE' ? 'bg-emerald-100 text-emerald-800' :
