@@ -16,13 +16,36 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
 ];
 
+function isAllowedOrigin(origin: string, env: Env): boolean {
+  if (!origin) return false;
+  if (
+    origin === 'https://vehiclebookingapp.pages.dev' ||
+    /^https:\/\/[a-z0-9-]+\.vehiclebookingapp\.pages\.dev$/.test(origin)
+  ) {
+    return true;
+  }
+  if (
+    origin === 'http://localhost:3000' ||
+    origin === 'http://localhost:5173' ||
+    origin.startsWith('http://localhost:')
+  ) {
+    return true;
+  }
+  if (env.CORS_ORIGINS) {
+    const list = env.CORS_ORIGINS.split(',').map((o) => o.trim());
+    if (list.includes('*') || list.includes(origin)) return true;
+  }
+  return false;
+}
+
 function getCorsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get('Origin') || '';
-  const configuredOrigins = env.CORS_ORIGINS ? env.CORS_ORIGINS.split(',') : ALLOWED_ORIGINS;
-  const isAllowed = configuredOrigins.includes(origin) || configuredOrigins.includes('*');
+  const allowOrigin = isAllowedOrigin(origin, env)
+    ? origin
+    : (env.FRONTEND_URL || 'https://vehiclebookingapp.pages.dev');
 
   return {
-    'Access-Control-Allow-Origin': isAllowed ? origin : (env.FRONTEND_URL || 'https://vehiclebookingapp.pages.dev'),
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
     'Access-Control-Max-Age': '86400',
