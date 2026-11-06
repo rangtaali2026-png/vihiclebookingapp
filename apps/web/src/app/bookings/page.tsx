@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchApi } from '@/lib/api';
-import type { Booking, Vehicle, VehicleCategory, BookingType } from '@plant-transit/shared-types';
+import type { Booking, Vehicle, VehicleCategory, BookingType, BookingPassenger } from '@plant-transit/shared-types';
 
 interface PassengerInput {
   employee_id: string;
@@ -44,6 +44,30 @@ export default function BookingsPage() {
     },
   ]);
 
+  // Manifest Modal State
+  const [activeManifest, setActiveManifest] = useState<{
+    reference: string;
+    passengers: BookingPassenger[];
+  } | null>(null);
+
+  // Helper: Get max seat capacity based on selection
+  const getSelectedMaxCapacity = (): number => {
+    if (preferredVehicleId) {
+      const selected = vehicles.find((v) => v.id === preferredVehicleId);
+      if (selected?.seat_capacity) return selected.seat_capacity;
+    }
+    const categoryMap: Record<VehicleCategory, number> = {
+      SEDAN_4: 4,
+      MPV_6: 6,
+      BUS_42: 42,
+      BUS_52: 52,
+    };
+    return categoryMap[targetCategory] || 4;
+  };
+
+  const maxCapacity = getSelectedMaxCapacity();
+  const isOverCapacity = passengers.length > maxCapacity;
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -61,7 +85,6 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
-    // Set default departure in 1 hour
     const now = new Date();
     const start = new Date(now.getTime() + 60 * 60 * 1000);
     const end = new Date(now.getTime() + 180 * 60 * 1000);
@@ -72,6 +95,10 @@ export default function BookingsPage() {
   }, []);
 
   const addPassenger = () => {
+    if (passengers.length >= maxCapacity) {
+      alert(`Cannot add more passengers: selected vehicle/category allows a maximum of ${maxCapacity} seats.`);
+      return;
+    }
     setPassengers([
       ...passengers,
       {
@@ -99,6 +126,11 @@ export default function BookingsPage() {
   const handleReserve = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!startTime || !endTime) return;
+
+    if (isOverCapacity) {
+      alert(`Passenger count (${passengers.length}) exceeds seat limit (${maxCapacity}). Adjust roster or choose a larger vehicle.`);
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -133,7 +165,6 @@ export default function BookingsPage() {
     if (!confirm) return;
 
     try {
-      // Shift tomorrow
       const tomorrowStart = new Date(Date.now() + 24 * 60 * 60 * 1000);
       const tomorrowEnd = new Date(tomorrowStart.getTime() + 2 * 60 * 60 * 1000);
 
@@ -149,6 +180,21 @@ export default function BookingsPage() {
       await loadData();
     } catch (err: any) {
       alert(`Re-booking failed: ${err.message}`);
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string, reference: string) => {
+    const confirm = window.confirm(`Are you sure you want to cancel booking ${reference}?`);
+    if (!confirm) return;
+
+    try {
+      await fetchApi(`/api/bookings/${bookingId}/cancel`, {
+        method: 'PATCH',
+      });
+      alert(`Booking ${reference} has been cancelled.`);
+      await loadData();
+    } catch (err: any) {
+      alert(`Cancellation failed: ${err.message}`);
     }
   };
 
@@ -308,19 +354,27 @@ export default function BookingsPage() {
               </div>
             </div>
 
-            {/* Passenger Manifest Section */}
+            {/* Passenger Manifest Section with Capacity Guard */}
             <div className="border-t border-slate-100 pt-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Passenger Manifest ({passengers.length} seat{passengers.length > 1 ? 's' : ''})
-                  </h3>
-                  <p className="text-xs text-slate-500">Add all passengers boarding this transit trip</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Passenger Manifest ({passengers.length} / {maxCapacity} seats)
+                    </h3>
+                    {isOverCapacity && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                        Capacity Exceeded!
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">Boarding roster for this trip</p>
                 </div>
                 <button
                   type="button"
                   onClick={addPassenger}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  disabled={passengers.length >= maxCapacity}
+                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
                 >
                   + Add Passenger
                 </button>
@@ -392,16 +446,16 @@ export default function BookingsPage() {
             <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || isOverCapacity}
                 className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 transition"
               >
-                {submitting ? 'Reserving...' : 'Confirm Reservation'}
+                {submitting ? 'Reserving...' : isOverCapacity ? 'Seat Limit Exceeded' : 'Confirm Reservation'}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Existing Bookings & 1-Click Rebooking Table */}
+        {/* Existing Bookings Table */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
             <h3 className="text-sm font-semibold text-slate-800">
@@ -428,7 +482,7 @@ export default function BookingsPage() {
                     <th className="py-3 px-4">Mode</th>
                     <th className="py-3 px-4">Route</th>
                     <th className="py-3 px-4">Departure</th>
-                    <th className="py-3 px-4">Seats</th>
+                    <th className="py-3 px-4">Manifest</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
@@ -448,25 +502,46 @@ export default function BookingsPage() {
                       <td className="py-3 px-4 text-slate-600 font-mono text-xs">
                         {new Date(b.scheduled_start_time).toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-slate-900 font-medium">{b.passenger_count}</td>
+                      <td className="py-3 px-4">
+                        <button
+                          type="button"
+                          onClick={() => setActiveManifest({
+                            reference: b.booking_reference,
+                            passengers: b.booking_passengers || [],
+                          })}
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          👥 {b.passenger_count} Passenger{b.passenger_count > 1 ? 's' : ''}
+                        </button>
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                           b.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
                           b.status === 'APPROVED' ? 'bg-blue-100 text-blue-800' :
                           b.status === 'DISPATCHED' ? 'bg-purple-100 text-purple-800' :
+                          b.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
                           'bg-emerald-100 text-emerald-800'
                         }`}>
                           {b.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-right space-x-2">
+                        {b.status !== 'CANCELLED' && b.status !== 'COMPLETED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCancelBooking(b.id, b.booking_reference)}
+                            className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Cancel
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handle1ClickRebook(b.id)}
                           className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs"
                           title="1-Click Re-book tomorrow"
                         >
-                          ⚡ 1-Click Re-book
+                          ⚡ Re-book
                         </button>
                       </td>
                     </tr>
@@ -478,6 +553,73 @@ export default function BookingsPage() {
         </div>
 
       </div>
+
+      {/* Passenger Manifest Modal */}
+      {activeManifest && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  Boarding Manifest: {activeManifest.reference}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Total Confirmed Riders: {activeManifest.passengers.length}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveManifest(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {activeManifest.passengers.length === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">No passenger roster details registered.</p>
+            ) : (
+              <div className="overflow-x-auto max-h-80">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase">
+                      <th className="p-2">Emp ID</th>
+                      <th className="p-2">Name</th>
+                      <th className="p-2">Department</th>
+                      <th className="p-2">Contact</th>
+                      <th className="p-2">Pickup</th>
+                      <th className="p-2">Drop</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {activeManifest.passengers.map((p, i) => (
+                      <tr key={i} className="hover:bg-slate-50">
+                        <td className="p-2 font-mono font-medium text-slate-900">{p.employee_id}</td>
+                        <td className="p-2 text-slate-800">{p.employee_name || '—'}</td>
+                        <td className="p-2 text-slate-600">{p.department || 'Operations'}</td>
+                        <td className="p-2 font-mono text-slate-600">{p.contact_number || '—'}</td>
+                        <td className="p-2 text-slate-700">{p.pickup_point}</td>
+                        <td className="p-2 text-slate-700">{p.drop_point}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setActiveManifest(null)}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

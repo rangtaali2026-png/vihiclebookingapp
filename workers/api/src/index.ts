@@ -276,6 +276,48 @@ export default {
         }, 201, corsHeaders);
       }
 
+            // PATCH /api/bookings/:id/cancel
+      if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/cancel')) {
+        const bookingId = path.split('/')[3];
+        
+        // Fetch current status
+        const { data: booking, error: fetchErr } = await supabase
+          .from('bookings')
+          .select('id, status, booking_reference')
+          .eq('id', bookingId)
+          .single();
+
+        if (fetchErr || !booking) {
+          return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+        }
+
+        if (booking.status === 'CANCELLED') {
+          return jsonResponse({ error: 'Booking is already cancelled' }, 400, corsHeaders);
+        }
+
+        if (['COMPLETED', 'DISPATCHED'].includes(booking.status)) {
+          return jsonResponse({ error: `Cannot cancel a trip that is already ${booking.status.toLowerCase()}` }, 400, corsHeaders);
+        }
+
+        const { data: updated, error: updateErr } = await supabase
+          .from('bookings')
+          .update({
+            status: 'CANCELLED',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', bookingId)
+          .select()
+          .single();
+
+        if (updateErr) throw updateErr;
+
+        return jsonResponse({
+          success: true,
+          booking: updated,
+          message: `Booking ${booking.booking_reference} has been cancelled successfully.`
+        }, 200, corsHeaders);
+      }
+
       // GET /api/bookings?site_id=...&requester_id=...
       if (request.method === 'GET' && path === '/api/bookings') {
         const siteId = url.searchParams.get('site_id');
