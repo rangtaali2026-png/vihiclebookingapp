@@ -217,6 +217,66 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // GET /api/fleet/vehicles/:id/active-trip
+      if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
+        const vehicleId = path.split('/')[4];
+
+        // 1. Fetch vehicle info
+        const { data: vehicle, error: vErr } = await supabase
+          .from('vehicles')
+          .select('id, registration_number, model, seat_capacity, qr_code_uuid')
+          .eq('id', vehicleId)
+          .single();
+
+        if (vErr || !vehicle) {
+          return jsonResponse({ error: 'Vehicle not found' }, 404, corsHeaders);
+        }
+
+        // 2. Fetch current DISPATCHED booking
+        const { data: activeBooking, error: bErr } = await supabase
+          .from('bookings')
+          .select('*, booking_passengers(*), drivers!bookings_allotted_driver_id_fkey(name, mobile_number)')
+          .eq('allotted_vehicle_id', vehicleId)
+          .eq('status', 'DISPATCHED')
+          .order('scheduled_start_time', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        return jsonResponse({
+          success: true,
+          vehicle,
+          active_booking: activeBooking || null,
+        }, 200, corsHeaders);
+      }
+
+      // POST /api/fleet/vehicles/:id/provision-qr
+      if (request.method === 'POST' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/provision-qr')) {
+        const vehicleId = path.split('/')[4];
+        const newQrUuid = crypto.randomUUID();
+        const qrUrl = `https://vehiclebookingapp.pages.dev/board/${vehicleId}`;
+
+        const { data: updated, error: updErr } = await supabase
+          .from('vehicles')
+          .update({
+            qr_code_uuid: newQrUuid,
+            qr_code_url: qrUrl,
+            qr_generated_at: new Date().toISOString(),
+            qr_version: 1
+          })
+          .eq('id', vehicleId)
+          .select()
+          .single();
+
+        if (updErr) throw updErr;
+
+        return jsonResponse({
+          success: true,
+          vehicle: updated,
+          qr_url: qrUrl
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles?site_id=...&category=...
       if (request.method === 'GET' && path === '/api/fleet/vehicles') {
         const siteId = url.searchParams.get('site_id');
