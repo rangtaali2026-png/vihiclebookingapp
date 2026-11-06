@@ -1,28 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchApi } from '@/lib/api';
+import GatewaySecretVault from '@/components/GatewaySecretVault';
 import {
   Building2,
   KeyRound,
-  Car,
   Search,
   Plus,
   RefreshCw,
   ShieldAlert,
   X,
-  Activity,
-  Layers,
-  MapPin,
-  Lock,
-  CheckCircle2,
-  Phone,
-  Radio,
-  SlidersHorizontal,
-  ChevronRight,
-  ExternalLink
+  MapPin
 } from 'lucide-react';
 
 export type EnvironmentType = 'PRODUCTION' | 'STAGING' | 'SANDBOX';
@@ -44,18 +34,6 @@ export interface PlantSite {
   autoAllotment: boolean;
   requireApproval: boolean;
   lastSyncTime: string;
-}
-
-export interface GatewaySecret {
-  id: string;
-  site_tag: string;
-  gateway_name: string;
-  channel: GatewayChannel;
-  environment: EnvironmentType;
-  gateway_identifier: string;
-  secret_key_encrypted?: string;
-  is_enabled: boolean;
-  last_rotated_at?: string;
 }
 
 export interface SiteAuditLog {
@@ -135,59 +113,6 @@ const INITIAL_PLANTS: PlantSite[] = [
   },
 ];
 
-const INITIAL_GATEWAYS: GatewaySecret[] = [
-  {
-    id: 'a1111111-0000-0000-0000-000000000001',
-    site_tag: 'VADODARA COMPLEX',
-    gateway_name: 'Meta WhatsApp Cloud API',
-    channel: 'WHATSAPP',
-    environment: 'PRODUCTION',
-    gateway_identifier: '104928392019283',
-    is_enabled: true,
-    last_rotated_at: '2026-10-28',
-  },
-  {
-    id: 'a1111111-0000-0000-0000-000000000002',
-    site_tag: 'VADODARA COMPLEX',
-    gateway_name: 'Airtel Telecom DLT Gateway',
-    channel: 'SMS',
-    environment: 'PRODUCTION',
-    gateway_identifier: 'PLNTRN',
-    is_enabled: true,
-    last_rotated_at: '2026-09-14',
-  },
-  {
-    id: 'a2222222-0000-0000-0000-000000000001',
-    site_tag: 'DAHEJ UNIT',
-    gateway_name: 'Meta WhatsApp Cloud API',
-    channel: 'WHATSAPP',
-    environment: 'PRODUCTION',
-    gateway_identifier: '204928392019284',
-    is_enabled: true,
-    last_rotated_at: '2026-10-12',
-  },
-  {
-    id: 'a3333333-0000-0000-0000-000000000001',
-    site_tag: 'JAMNAGAR WORKS',
-    gateway_name: 'Resend Transactional SMTP',
-    channel: 'EMAIL',
-    environment: 'PRODUCTION',
-    gateway_identifier: 'transit-jamnagar@plant-logistics.company.com',
-    is_enabled: true,
-    last_rotated_at: '2026-11-01',
-  },
-  {
-    id: 'a4444444-0000-0000-0000-000000000001',
-    site_tag: 'HAZIRA YARD',
-    gateway_name: 'Jio Telecom SMS Engine',
-    channel: 'SMS',
-    environment: 'STAGING',
-    gateway_identifier: 'HZTRN',
-    is_enabled: false,
-    last_rotated_at: '2026-10-02',
-  },
-];
-
 const INITIAL_AUDIT_LOGS: SiteAuditLog[] = [
   {
     id: 'aud-01',
@@ -233,13 +158,9 @@ export default function SuperAdminSitesPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | SiteStatus>('ALL');
 
   const [plants, setPlants] = useState<PlantSite[]>(INITIAL_PLANTS);
-  const [gateways, setGateways] = useState<GatewaySecret[]>(INITIAL_GATEWAYS);
   const [auditLogs] = useState<SiteAuditLog[]>(INITIAL_AUDIT_LOGS);
 
   const [isNewPlantModalOpen, setIsNewPlantModalOpen] = useState(false);
-  const [isRotateSecretModalOpen, setIsRotateSecretModalOpen] = useState(false);
-  const [activeSecretForRotation, setActiveSecretForRotation] = useState<GatewaySecret | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [newPlantForm, setNewPlantForm] = useState({
@@ -256,39 +177,6 @@ export default function SuperAdminSitesPage() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
-  };
-
-  useEffect(() => {
-    fetchApi<{ success: boolean; gateways: GatewaySecret[] }>('/api/admin/gateways')
-      .then((res) => {
-        if (res?.gateways && res.gateways.length > 0) {
-          setGateways(res.gateways);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleToggleGateway = async (id: string, currentStatus: boolean) => {
-    const nextStatus = !currentStatus;
-    setTogglingId(id);
-    setGateways((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, is_enabled: nextStatus } : g))
-    );
-
-    try {
-      await fetchApi(`/api/admin/gateways/${id}/toggle`, {
-        method: 'PATCH',
-        body: JSON.stringify({ is_enabled: nextStatus }),
-      });
-      showToast(`Gateway successfully ${nextStatus ? 'ENABLED' : 'DISABLED'}`);
-    } catch (err: any) {
-      showToast(`Toggle failed: ${err.message}`);
-      setGateways((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, is_enabled: currentStatus } : g))
-      );
-    } finally {
-      setTogglingId(null);
-    }
   };
 
   const handleCreatePlant = (e: React.FormEvent) => {
@@ -325,35 +213,16 @@ export default function SuperAdminSitesPage() {
     });
   };
 
-  const handleExecuteRotation = () => {
-    if (!activeSecretForRotation) return;
-    setGateways((prev) =>
-      prev.map((g) =>
-        g.id === activeSecretForRotation.id
-          ? { ...g, last_rotated_at: new Date().toISOString().split('T')[0] }
-          : g
-      )
-    );
-    setIsRotateSecretModalOpen(false);
-    showToast(`Secret rotated for ${activeSecretForRotation.gateway_name}`);
-  };
-
   const metrics = useMemo(() => {
     const totalPlants = plants.length;
     const activeSites = plants.filter((p) => p.status === 'ACTIVE').length;
     const totalVehicles = plants.reduce((acc, p) => acc + p.connectedVehicles, 0);
-    const totalSecrets = gateways.length;
-    const onlineGateways = gateways.filter((g) => g.is_enabled).length;
-    const offlineGateways = totalSecrets - onlineGateways;
     return {
       totalPlants,
       activeSites,
       totalVehicles,
-      totalSecrets,
-      onlineGateways,
-      offlineGateways,
     };
-  }, [plants, gateways]);
+  }, [plants]);
 
   const filteredPlants = useMemo(() => {
     return plants.filter((p) => {
@@ -376,7 +245,7 @@ export default function SuperAdminSitesPage() {
         </div>
       )}
 
-      {/* Top Header */}
+      {/* Header */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-xl px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -402,10 +271,10 @@ export default function SuperAdminSitesPage() {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Body */}
       <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-6">
         {/* KPI Strip */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
             <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Plant Replicas</span>
             <div className="text-2xl font-black text-white mt-1">{metrics.totalPlants}</div>
@@ -417,18 +286,13 @@ export default function SuperAdminSitesPage() {
             <p className="text-[11px] text-purple-400 mt-1">Dedicated vehicles</p>
           </div>
           <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Active Gateways</span>
-            <div className="text-2xl font-black text-emerald-400 mt-1">{metrics.onlineGateways}</div>
-            <p className="text-[11px] text-slate-400 mt-1">WhatsApp & SMS Live</p>
-          </div>
-          <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Disabled Gateways</span>
-            <div className="text-2xl font-black text-rose-400 mt-1">{metrics.offlineGateways}</div>
-            <p className="text-[11px] text-slate-400 mt-1">Dispatches blocked</p>
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Storage Security</span>
+            <div className="text-2xl font-black text-emerald-400 mt-1">AES-256</div>
+            <p className="text-[11px] text-slate-400 mt-1">Cloudflare Secret Vault</p>
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation Bar */}
         <div className="flex border-b border-slate-800 gap-2">
           <button
             onClick={() => setActiveTab('PLANTS')}
@@ -448,7 +312,7 @@ export default function SuperAdminSitesPage() {
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            Encrypted Gateway Vault ({gateways.length})
+            Encrypted Gateway Vault
           </button>
           <button
             onClick={() => setActiveTab('ANALYTICS')}
@@ -549,109 +413,9 @@ export default function SuperAdminSitesPage() {
           </div>
         )}
 
-        {/* TAB 2: ENCRYPTED GATEWAY VAULT WITH TOGGLES */}
+        {/* TAB 2: ENCRYPTED GATEWAY VAULT (USES REUSABLE COMPONENT) */}
         {activeTab === 'GATEWAYS' && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-amber-400">🔑</span>
-                  <h2 className="text-lg font-bold text-white tracking-wide">Encrypted Gateway Secret Vault</h2>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Manage WhatsApp Cloud API keys, telecom SMS DLT credentials, and toggle outbound communications.
-                </p>
-              </div>
-              <span className="px-3 py-1 rounded-full text-xs font-mono font-medium bg-purple-950/60 text-purple-300 border border-purple-800/50 self-start sm:self-auto">
-                AES-256 Cloudflare Storage
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {gateways.map((g) => (
-                <div
-                  key={g.id}
-                  className={`rounded-xl border p-5 space-y-4 transition-all duration-200 ${
-                    g.is_enabled
-                      ? 'bg-slate-950/70 border-slate-800 shadow-sm'
-                      : 'bg-slate-950/40 border-slate-800/60 opacity-75'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] font-mono font-bold tracking-wider text-purple-400 uppercase">
-                        {g.site_tag}
-                      </span>
-                      <h3 className="text-sm font-bold text-white mt-0.5">{g.gateway_name}</h3>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${
-                          g.is_enabled
-                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
-                            : 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
-                        }`}
-                      >
-                        {g.is_enabled ? g.environment || 'PRODUCTION' : 'DISABLED'}
-                      </span>
-
-                      <button
-                        type="button"
-                        disabled={togglingId === g.id}
-                        onClick={() => handleToggleGateway(g.id, g.is_enabled)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          g.is_enabled ? 'bg-emerald-500' : 'bg-slate-700'
-                        } ${togglingId === g.id ? 'opacity-50' : ''}`}
-                        title={g.is_enabled ? 'Click to Disable Gateway' : 'Click to Enable Gateway'}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                            g.is_enabled ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-                      Gateway Identifier
-                    </label>
-                    <div className="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-200 truncate">
-                      {g.gateway_identifier}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-                      API Token / Secret Key
-                    </label>
-                    <div className="flex items-center justify-between bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400">
-                      <span className="tracking-widest">••••••••••••••••••••••••••••</span>
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <button type="button" className="hover:text-slate-200 p-0.5" title="Masked Key">👁</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-500">
-                    <span>Updated: {g.last_rotated_at || '2026-10-28'}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveSecretForRotation(g);
-                        setIsRotateSecretModalOpen(true);
-                      }}
-                      className="text-purple-400 hover:text-purple-300 font-medium inline-flex items-center gap-1"
-                    >
-                      🔄 Rotate
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <GatewaySecretVault />
         )}
 
         {/* TAB 3: TELEMETRY & ANALYTICS */}
@@ -860,56 +624,6 @@ export default function SuperAdminSitesPage() {
                   </button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 2: ROTATE GATEWAY SECRET */}
-      <AnimatePresence>
-        {isRotateSecretModalOpen && activeSecretForRotation && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-4"
-            >
-              <div className="flex items-center gap-3 text-orange-400">
-                <div className="p-2 rounded-xl bg-orange-950 border border-orange-500/40">
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Rotate Gateway Secret</h3>
-                  <p className="text-xs text-slate-400 font-mono">{activeSecretForRotation.gateway_name}</p>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-2">
-                <p>
-                  Issuing a new token for <strong>{activeSecretForRotation.site_tag}</strong>.
-                </p>
-                <p className="text-amber-400">
-                  ⚠️ The existing secret will be refreshed immediately.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setIsRotateSecretModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExecuteRotation}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 text-white font-semibold"
-                >
-                  Confirm Rotation
-                </button>
-              </div>
             </motion.div>
           </div>
         )}
