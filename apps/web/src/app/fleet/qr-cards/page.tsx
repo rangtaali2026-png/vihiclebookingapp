@@ -61,7 +61,7 @@ export default function VehicleQrCardsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:grid-cols-2 print:gap-4">
             {vehicles.map((v) => {
-              const boardingUrl = `https://vehiclebookingapp.pages.dev/board/${v.id}`;
+              const boardingUrl = `https://vehiclebookingapp.pages.dev/board?vehicle_id=${v.id}`;
 
               return (
                 <div

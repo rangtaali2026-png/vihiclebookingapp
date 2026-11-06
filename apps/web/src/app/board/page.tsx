@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
 import type { Booking, Vehicle } from '@plant-transit/shared-types';
 
-export default function MobileBoardingPage({ params }: { params: Promise<{ vehicle_id: string }> }) {
-  const resolvedParams = use(params);
-  const vehicleId = resolvedParams.vehicle_id;
+function BoardingContent() {
+  const searchParams = useSearchParams();
+  const vehicleId = searchParams.get('vehicle_id') || '';
 
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
@@ -17,6 +18,10 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadTripData = async () => {
+    if (!vehicleId) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetchApi<{
@@ -64,6 +69,18 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
     }
   };
 
+  if (!vehicleId) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-sm text-slate-500">
+        <div className="text-center space-y-2">
+          <p className="font-semibold text-slate-800">No vehicle specified.</p>
+          <p className="text-xs">Scan a valid vehicle QR placard to verify boarding.</p>
+          <Link href="/bookings" className="text-xs text-blue-600 underline">Return Home</Link>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-sm text-slate-500">
@@ -76,7 +93,7 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
     <div className="min-h-screen bg-slate-100 flex flex-col justify-between p-4 md:p-8">
       <div className="max-w-md w-full mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
         
-        {/* Vehicle Badge */}
+        {/* Vehicle Header Badge */}
         <div className="text-center pb-4 border-b border-slate-100">
           <div className="inline-flex px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider mb-2">
             Plant Transit Boarding
@@ -89,7 +106,7 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
           </p>
         </div>
 
-        {/* Active Trip Info */}
+        {/* Active Trip Information */}
         {!activeBooking ? (
           <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-center space-y-2">
             <p className="text-sm font-semibold text-amber-900">No Active Trip Dispatched</p>
@@ -118,7 +135,7 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
               </div>
             </div>
 
-            {/* Check-In Form */}
+            {/* Check-In Input Form */}
             <form onSubmit={handleBoardingSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
@@ -153,7 +170,7 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
               </div>
             )}
 
-            {/* Current Manifest Roster Status */}
+            {/* Current Boarding Manifest Roster */}
             <div className="pt-2">
               <p className="text-xs font-semibold text-slate-700 mb-2">
                 Passenger Manifest ({activeBooking.booking_passengers?.filter(p => p.is_boarded).length || 0}/{activeBooking.passenger_count} Boarded)
@@ -188,5 +205,13 @@ export default function MobileBoardingPage({ params }: { params: Promise<{ vehic
         Vadodara Chemical & Polymer Complex • Transit Operations
       </div>
     </div>
+  );
+}
+
+export default function BoardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-sm text-slate-500">Loading Transit Page...</div>}>
+      <BoardingContent />
+    </Suspense>
   );
 }
