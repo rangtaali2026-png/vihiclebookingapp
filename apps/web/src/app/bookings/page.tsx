@@ -215,12 +215,20 @@ export default function BookingsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">Vehicle Booking Engine</h1>
             <p className="text-sm text-slate-600">Reserve dedicated cars or book shared shuttle seats with atomic concurrency safety</p>
           </div>
-          <Link
-            href="/fleet"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
-          >
-            Manage Fleet Assets →
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/board"
+              className="inline-flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 px-3.5 py-2 text-sm font-semibold text-purple-700 shadow-xs hover:bg-purple-100 transition"
+            >
+              📱 Boarding Check-In
+            </Link>
+            <Link
+              href="/fleet"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+            >
+              Manage Fleet Assets →
+            </Link>
+          </div>
         </div>
 
         {/* Booking Creation Form */}
@@ -534,6 +542,15 @@ export default function BookingsPage() {
                           >
                             Cancel
                           </button>
+                        )}
+                        {b.allotted_vehicle_id && (
+                          <Link
+                            href={`/board?vehicle_id=${b.allotted_vehicle_id}`}
+                            className="inline-flex items-center rounded border border-purple-300 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 shadow-xs"
+                            title="Open Passenger Boarding Scan View"
+                          >
+                            📱 Boarding Scan
+                          </Link>
                         )}
                         <button
                           type="button"
