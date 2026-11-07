@@ -740,6 +740,21 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // POST /api/shifts/cron-trigger (Manual trigger for testing automated scheduled runs)
+      if (request.method === 'POST' && path === '/api/shifts/cron-trigger') {
+        // Invoke scheduled handler logic on-demand
+        const dummyEvent: any = { scheduledTime: Date.now(), cron: "manual-invocation" };
+        const dummyCtx: any = { waitUntil: (p: Promise<any>) => p };
+        
+        await (this as any).scheduled(dummyEvent, env, dummyCtx);
+
+        return jsonResponse({
+          success: true,
+          message: 'Manually executed automated shift cron scheduler and notification pipelines.'
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -1199,6 +1214,21 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // POST /api/shifts/cron-trigger (Manual trigger for testing automated scheduled runs)
+      if (request.method === 'POST' && path === '/api/shifts/cron-trigger') {
+        // Invoke scheduled handler logic on-demand
+        const dummyEvent: any = { scheduledTime: Date.now(), cron: "manual-invocation" };
+        const dummyCtx: any = { waitUntil: (p: Promise<any>) => p };
+        
+        await (this as any).scheduled(dummyEvent, env, dummyCtx);
+
+        return jsonResponse({
+          success: true,
+          message: 'Manually executed automated shift cron scheduler and notification pipelines.'
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles?site_id=...&category=...
       if (request.method === 'GET' && path === '/api/fleet/vehicles') {
         const siteId = url.searchParams.get('site_id');
@@ -1449,6 +1479,114 @@ export default {
   },
 
   // Cloudflare Queue Consumer for dispatch notifications
+  
+  // Cloudflare Scheduled Event (Cron Trigger for Shift Bus Runs & Reminders)
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    console.log(`[Cron Trigger Executed] Scheduled time: ${new Date(event.scheduledTime).toISOString()}`);
+    const supabase = getSupabase(env);
+
+    try {
+      // 1. Determine target date (tomorrow's date or today depending on cron hour)
+      const targetDate = new Date().toISOString().split('T')[0];
+
+      // 2. Fetch all active plant sites
+      const { data: sites, error: siteErr } = await supabase
+        .from('sites')
+        .select('id, site_code, site_name')
+        .eq('is_active', true);
+
+      if (siteErr || !sites) {
+        console.error('Failed to load active sites for scheduled runs:', siteErr);
+        return;
+      }
+
+      for (const site of sites) {
+        // Fetch active shift routes with employee rosters
+        const { data: routes } = await supabase
+          .from('shift_routes')
+          .select('*, shift_roster_members(*)')
+          .eq('site_id', site.id)
+          .eq('is_active', true);
+
+        if (!routes || routes.length === 0) continue;
+
+        // Fetch available buses
+        const { data: availableBuses } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('site_id', site.id)
+          .eq('status', 'AVAILABLE');
+
+        let busPool = [...(availableBuses || [])];
+
+        for (const route of routes) {
+          const roster = route.shift_roster_members || [];
+          const manifest = roster.map((m: any) => ({
+            name: m.employee_name,
+            employee_id: m.employee_code,
+            department: m.department,
+            mobile: m.mobile_number,
+            pickup_point: m.pickup_point,
+            boarded: false
+          }));
+
+          const allottedVehicle = busPool.length > 0 ? busPool.shift() : null;
+          const refSuffix = Math.floor(1000 + Math.random() * 9000);
+          const bookingRef = `AUTO-${route.shift_code.replace('SHIFT_', '')}-${refSuffix}`;
+
+          // Insert automated shift trip run
+          const { data: createdTrip, error: tripErr } = await supabase
+            .from('bookings')
+            .insert({
+              site_id: site.id,
+              booking_reference: bookingRef,
+              employee_name: `Automated Roster: ${route.route_name}`,
+              employee_email: 'scheduler@company.com',
+              department: 'Manufacturing Commute',
+              booking_type: 'DAILY_SHIFT',
+              target_category: route.default_vehicle_category || 'BUS',
+              origin_location: route.origin_hub,
+              destination_location: route.destination_plant,
+              pickup_time: `${targetDate}T${route.departure_time}`,
+              passenger_count: Math.max(1, roster.length),
+              passenger_manifest: manifest,
+              status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
+              allotted_vehicle_id: allottedVehicle ? allottedVehicle.id : null,
+              purpose: `Cron Auto Run: ${route.route_name}`
+            })
+            .select()
+            .single();
+
+          if (tripErr) {
+            console.error(`Error auto-generating trip for route ${route.id}:`, tripErr);
+            continue;
+          }
+
+          if (allottedVehicle) {
+            await supabase
+              .from('vehicles')
+              .update({ status: 'ON_TRIP' })
+              .eq('id', allottedVehicle.id);
+          }
+
+          // Queue shift reminder notification if queue is bound
+          if ((env as any).NOTIFICATIONS_QUEUE && roster.length > 0) {
+            await (env as any).NOTIFICATIONS_QUEUE.send({
+              booking: createdTrip,
+              vehicle: allottedVehicle,
+              driver: null,
+              passengers: roster,
+              type: 'SHIFT_COMMUTE_REMINDER'
+            });
+          }
+        }
+      }
+      console.log('✓ Scheduled daily shift generator completed successfully.');
+    } catch (err) {
+      console.error('Fatal error in scheduled worker execution:', err);
+    }
+  },
+
   async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
     const supabase = getSupabase(env);
     for (const message of batch.messages) {

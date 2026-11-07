@@ -15,3 +15,7 @@ queue = "vehicle-notifications-prod"
 
 [observability]
 enabled = true
+
+# Phase 9: Automated Daily Shift Bus Generator Cron
+[triggers]
+crons = ["0 18 * * *", "0 6 * * *"]

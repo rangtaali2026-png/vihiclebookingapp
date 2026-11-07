@@ -54,6 +54,22 @@ export default function ShiftRosterPage() {
     loadRoutes();
   }, [session.siteId]);
 
+  const handleTriggerCronSimulation = async () => {
+    try {
+      setGenerating(true);
+      setStatusMessage(null);
+      const res = await fetchApi<{ success: boolean; message: string }>('/api/shifts/cron-trigger', {
+        method: 'POST',
+      });
+      setStatusMessage(res.message);
+      loadRoutes();
+    } catch (err: any) {
+      alert(`Cron execution failed: ${err.message}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleGenerateRuns = async () => {
     if (!session.siteId) {
       alert('Please select an active plant site first using the top-right persona selector.');
@@ -116,6 +132,17 @@ export default function ShiftRosterPage() {
                 className="bg-transparent text-xs font-mono text-white focus:outline-none"
               />
             </div>
+
+            <button
+              type="button"
+              disabled={generating}
+              onClick={handleTriggerCronSimulation}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition"
+              title="Test Cloudflare Cron Trigger"
+            >
+              <Clock className="w-3.5 h-3.5 text-purple-400" />
+              <span>Simulate Cron Job</span>
+            </button>
 
             <button
               type="button"
