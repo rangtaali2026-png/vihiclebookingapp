@@ -882,12 +882,11 @@ export default {
     }
   },
 
-  // Cloudflare Queue Consumer for dispatch notifications
-      } catch (fatalError: any) {
+  // Cloudflare Queue Consumer for dispatch notifications    } catch (fatalError: any) {
       console.error('Fatal unhandled Worker error:', fatalError);
       return new Response(JSON.stringify({
         error: fatalError?.message || 'Internal Worker Error',
-        stack: fatalError?.stack
+        details: String(fatalError)
       }), {
         status: 500,
         headers: {
