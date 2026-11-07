@@ -40,6 +40,7 @@ jobs:
       - name: Sync Capacitor
         run: |
           cd apps/web
+          mkdir -p android/app/src/main/assets
           pnpm exec cap sync android
 
       - name: Build Android APK
