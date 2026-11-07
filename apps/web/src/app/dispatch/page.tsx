@@ -1,5 +1,6 @@
 'use client';
 
+import AppNavbar from '@/components/AppNavbar';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchApi } from '@/lib/api';
@@ -136,6 +137,7 @@ export default function DispatchPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+      <AppNavbar />
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Navigation & Header */}

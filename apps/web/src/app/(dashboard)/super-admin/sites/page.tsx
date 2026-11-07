@@ -1,5 +1,6 @@
 'use client';
 
+import AppNavbar from '@/components/AppNavbar';
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -238,6 +239,7 @@ export default function SuperAdminSitesPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      <AppNavbar />
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white shadow-xl">
