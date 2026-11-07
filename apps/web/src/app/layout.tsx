@@ -6,6 +6,8 @@ import { AuthProvider } from '@/lib/auth-context';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  manifest: "/manifest.json",
+  themeColor: "#020617",
   title: 'Plant Transit & Fleet Management System',
   description: 'Enterprise multi-tenant fleet and transit management for Gujarat manufacturing hubs.',
 };
