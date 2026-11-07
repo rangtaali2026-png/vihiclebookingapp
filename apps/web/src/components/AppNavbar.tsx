@@ -2,25 +2,39 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import RoleSwitcher from './RoleSwitcher';
 import { useAuth } from '@/lib/auth-context';
-import { Bus, Activity, Calendar, FileSpreadsheet, ShieldCheck, Compass } from 'lucide-react';
+import {
+  Bus,
+  Activity,
+  Calendar,
+  ShieldCheck,
+  FileSpreadsheet,
+  LogOut,
+  LogIn
+} from 'lucide-react';
 
 export default function AppNavbar() {
   const pathname = usePathname();
-  const { session } = useAuth();
+  const router = useRouter();
+  const { session, isAuthenticated, logout } = useAuth();
 
-  const isSuperAdmin = session.role === 'SUPER_ADMIN';
+  const isSuperAdmin = session?.role === 'SUPER_ADMIN';
 
   const navLinks = [
     { href: '/bookings', label: 'Bookings', icon: Calendar, visible: true },
-    { href: '/shifts', label: 'Shift Rosters', icon: Bus, visible: true },
-    { href: '/dispatch', label: 'Dispatch', icon: Bus, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
-    { href: '/analytics', label: 'Analytics', icon: Activity, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
-    { href: '/audit', label: 'Compliance & Audits', icon: FileSpreadsheet, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
+    { href: '/shifts', label: 'Shift Rosters', icon: Bus, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
+    { href: '/dispatch', label: 'Dispatch', icon: Bus, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
+    { href: '/analytics', label: 'Analytics', icon: Activity, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
+    { href: '/audit', label: 'Compliance & Audits', icon: FileSpreadsheet, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
     { href: '/super-admin/sites', label: 'Super Admin', icon: ShieldCheck, visible: isSuperAdmin },
   ];
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
+  };
 
   return (
     <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30">
@@ -55,9 +69,29 @@ export default function AppNavbar() {
           </div>
         </div>
 
-        {/* Right Action: Role Switcher */}
+        {/* Right Action Area */}
         <div className="flex items-center gap-3">
-          <RoleSwitcher />
+          {isAuthenticated && session ? (
+            <>
+              <RoleSwitcher />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="p-1.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-rose-400 hover:border-rose-900/60 transition"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white transition shadow-sm"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
