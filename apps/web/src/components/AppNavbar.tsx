@@ -15,6 +15,7 @@ export default function AppNavbar() {
 
   const navLinks = [
     { href: '/bookings', label: 'Bookings', icon: Calendar, visible: true },
+    { href: '/shifts', label: 'Shift Rosters', icon: Bus, visible: true },
     { href: '/dispatch', label: 'Dispatch', icon: Bus, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
     { href: '/analytics', label: 'Analytics', icon: Activity, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
     { href: '/super-admin/sites', label: 'Super Admin', icon: ShieldCheck, visible: isSuperAdmin },

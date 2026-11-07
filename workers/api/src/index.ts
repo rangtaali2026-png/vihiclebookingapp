@@ -628,6 +628,118 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // GET /api/shifts/routes
+      if (request.method === 'GET' && path === '/api/shifts/routes') {
+        const siteId = url.searchParams.get('site_id');
+        let query = supabase.from('shift_routes').select('*, shift_roster_members(count)');
+        if (siteId) query = query.eq('site_id', siteId);
+        const { data: routes, error: rErr } = await query;
+        if (rErr) throw rErr;
+
+        return jsonResponse({ success: true, routes: routes || [] }, 200, corsHeaders);
+      }
+
+      // POST /api/shifts/generate-runs
+      // Generates daily recurring bus bookings for a designated shift date
+      if (request.method === 'POST' && path === '/api/shifts/generate-runs') {
+        const body = await request.json() as {
+          site_id: string;
+          target_date: string; // YYYY-MM-DD
+          shift_code?: string;
+        };
+
+        if (!body.site_id || !body.target_date) {
+          return jsonResponse({ error: 'site_id and target_date are required' }, 400, corsHeaders);
+        }
+
+        // 1. Fetch active shift routes
+        let routeQuery = supabase
+          .from('shift_routes')
+          .select('*, shift_roster_members(*)')
+          .eq('site_id', body.site_id)
+          .eq('is_active', true);
+
+        if (body.shift_code) {
+          routeQuery = routeQuery.eq('shift_code', body.shift_code);
+        }
+
+        const { data: routes, error: rErr } = await routeQuery;
+        if (rErr) throw rErr;
+        if (!routes || routes.length === 0) {
+          return jsonResponse({ success: true, message: 'No shift routes configured for this site', generated: 0 }, 200, corsHeaders);
+        }
+
+        // 2. Fetch available buses for auto-allotment
+        const { data: availableBuses } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('site_id', body.site_id)
+          .eq('status', 'AVAILABLE')
+          .in('category', ['BUS', 'VAN']);
+
+        let busPool = [...(availableBuses || [])];
+        const generatedRuns: any[] = [];
+
+        for (const r of routes) {
+          const roster = r.shift_roster_members || [];
+          const passengerManifest = roster.map((m: any) => ({
+            name: m.employee_name,
+            employee_id: m.employee_code,
+            department: m.department,
+            mobile: m.mobile_number,
+            pickup_point: m.pickup_point,
+            boarded: false
+          }));
+
+          const allottedVehicle = busPool.length > 0 ? busPool.shift() : null;
+          const refSuffix = Math.floor(1000 + Math.random() * 9000);
+          const bookingRef = `SHIFT-${r.shift_code.replace('SHIFT_', '')}-${refSuffix}`;
+
+          // Create standard booking run
+          const { data: createdBooking, error: bErr } = await supabase
+            .from('bookings')
+            .insert({
+              site_id: body.site_id,
+              booking_reference: bookingRef,
+              employee_name: `Roster: ${r.route_name}`,
+              employee_email: 'fleet.dispatch@company.com',
+              department: 'Manufacturing Operations',
+              booking_type: 'DAILY_SHIFT',
+              target_category: r.default_vehicle_category || 'BUS',
+              origin_location: r.origin_hub,
+              destination_location: r.destination_plant,
+              pickup_time: `${body.target_date}T${r.departure_time}`,
+              passenger_count: Math.max(1, roster.length),
+              passenger_manifest: passengerManifest,
+              status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
+              allotted_vehicle_id: allottedVehicle ? allottedVehicle.id : null,
+              purpose: `Automated Shift Run: ${r.route_name}`
+            })
+            .select()
+            .single();
+
+          if (bErr) throw bErr;
+
+          // If vehicle was allotted, mark as ON_TRIP
+          if (allottedVehicle) {
+            await supabase
+              .from('vehicles')
+              .update({ status: 'ON_TRIP' })
+              .eq('id', allottedVehicle.id);
+          }
+
+          generatedRuns.push(createdBooking);
+        }
+
+        return jsonResponse({
+          success: true,
+          message: `Generated ${generatedRuns.length} shift transit runs for ${body.target_date}`,
+          generated: generatedRuns.length,
+          runs: generatedRuns
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -972,6 +1084,118 @@ export default {
               full_name: user.email?.split('@')[0] || 'Employee'
             }
           }
+        }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/shifts/routes
+      if (request.method === 'GET' && path === '/api/shifts/routes') {
+        const siteId = url.searchParams.get('site_id');
+        let query = supabase.from('shift_routes').select('*, shift_roster_members(count)');
+        if (siteId) query = query.eq('site_id', siteId);
+        const { data: routes, error: rErr } = await query;
+        if (rErr) throw rErr;
+
+        return jsonResponse({ success: true, routes: routes || [] }, 200, corsHeaders);
+      }
+
+      // POST /api/shifts/generate-runs
+      // Generates daily recurring bus bookings for a designated shift date
+      if (request.method === 'POST' && path === '/api/shifts/generate-runs') {
+        const body = await request.json() as {
+          site_id: string;
+          target_date: string; // YYYY-MM-DD
+          shift_code?: string;
+        };
+
+        if (!body.site_id || !body.target_date) {
+          return jsonResponse({ error: 'site_id and target_date are required' }, 400, corsHeaders);
+        }
+
+        // 1. Fetch active shift routes
+        let routeQuery = supabase
+          .from('shift_routes')
+          .select('*, shift_roster_members(*)')
+          .eq('site_id', body.site_id)
+          .eq('is_active', true);
+
+        if (body.shift_code) {
+          routeQuery = routeQuery.eq('shift_code', body.shift_code);
+        }
+
+        const { data: routes, error: rErr } = await routeQuery;
+        if (rErr) throw rErr;
+        if (!routes || routes.length === 0) {
+          return jsonResponse({ success: true, message: 'No shift routes configured for this site', generated: 0 }, 200, corsHeaders);
+        }
+
+        // 2. Fetch available buses for auto-allotment
+        const { data: availableBuses } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('site_id', body.site_id)
+          .eq('status', 'AVAILABLE')
+          .in('category', ['BUS', 'VAN']);
+
+        let busPool = [...(availableBuses || [])];
+        const generatedRuns: any[] = [];
+
+        for (const r of routes) {
+          const roster = r.shift_roster_members || [];
+          const passengerManifest = roster.map((m: any) => ({
+            name: m.employee_name,
+            employee_id: m.employee_code,
+            department: m.department,
+            mobile: m.mobile_number,
+            pickup_point: m.pickup_point,
+            boarded: false
+          }));
+
+          const allottedVehicle = busPool.length > 0 ? busPool.shift() : null;
+          const refSuffix = Math.floor(1000 + Math.random() * 9000);
+          const bookingRef = `SHIFT-${r.shift_code.replace('SHIFT_', '')}-${refSuffix}`;
+
+          // Create standard booking run
+          const { data: createdBooking, error: bErr } = await supabase
+            .from('bookings')
+            .insert({
+              site_id: body.site_id,
+              booking_reference: bookingRef,
+              employee_name: `Roster: ${r.route_name}`,
+              employee_email: 'fleet.dispatch@company.com',
+              department: 'Manufacturing Operations',
+              booking_type: 'DAILY_SHIFT',
+              target_category: r.default_vehicle_category || 'BUS',
+              origin_location: r.origin_hub,
+              destination_location: r.destination_plant,
+              pickup_time: `${body.target_date}T${r.departure_time}`,
+              passenger_count: Math.max(1, roster.length),
+              passenger_manifest: passengerManifest,
+              status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
+              allotted_vehicle_id: allottedVehicle ? allottedVehicle.id : null,
+              purpose: `Automated Shift Run: ${r.route_name}`
+            })
+            .select()
+            .single();
+
+          if (bErr) throw bErr;
+
+          // If vehicle was allotted, mark as ON_TRIP
+          if (allottedVehicle) {
+            await supabase
+              .from('vehicles')
+              .update({ status: 'ON_TRIP' })
+              .eq('id', allottedVehicle.id);
+          }
+
+          generatedRuns.push(createdBooking);
+        }
+
+        return jsonResponse({
+          success: true,
+          message: `Generated ${generatedRuns.length} shift transit runs for ${body.target_date}`,
+          generated: generatedRuns.length,
+          runs: generatedRuns
         }, 200, corsHeaders);
       }
 
