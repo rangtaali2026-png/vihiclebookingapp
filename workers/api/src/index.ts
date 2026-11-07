@@ -96,7 +96,7 @@ export default {
       });
     }
 
-    try {
+    
     const corsHeaders = getCorsHeaders(request, env);
 
     if (request.method === 'OPTIONS') {
@@ -117,7 +117,7 @@ export default {
       }, 200, corsHeaders);
     }
 
-    try {
+    
       const supabase = getSupabase(env);
 
       // --- FLEET INVENTORY ENDPOINTS ---
@@ -882,20 +882,12 @@ export default {
     }
   },
 
-  // Cloudflare Queue Consumer for dispatch notifications    } catch (fatalError: any) {
-      console.error('Fatal unhandled Worker error:', fatalError);
-      return new Response(JSON.stringify({
-        error: fatalError?.message || 'Internal Worker Error',
-        details: String(fatalError)
-      }), {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      });
-    }
+  // Cloudflare Queue Consumer for dispatch notifications
+    // Default 404 fallback
+    return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
   },
+
+  
 
   async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
