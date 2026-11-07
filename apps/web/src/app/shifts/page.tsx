@@ -12,9 +12,7 @@ import {
   Play,
   CheckCircle2,
   Bus,
-  RefreshCw,
-  Plus,
-  AlertCircle
+  RefreshCw
 } from 'lucide-react';
 
 interface ShiftRoute {
@@ -76,7 +74,7 @@ export default function ShiftRosterPage() {
         }
       );
 
-      setStatusMessage(res.message || `Successfully generated shift runs.`);
+      setStatusMessage(res.message || 'Successfully generated shift runs.');
     } catch (err: any) {
       alert(`Generation failed: ${err.message}`);
     } finally {
