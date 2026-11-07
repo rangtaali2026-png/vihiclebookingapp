@@ -1,4 +1,47 @@
 
+import { createClient } from '@supabase/supabase-js';
+import type { CreateBookingPayload, Vehicle } from '@plant-transit/shared-types';
+
+interface Env {
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
+  ENVIRONMENT?: string;
+  WEBHOOK_NOTIFICATION_URL?: string;
+  CORS_ORIGINS?: string;
+  NOTIFICATION_QUEUE?: {
+    send: (message: unknown) => Promise<void>;
+  };
+}
+
+function getCorsHeaders(request: Request, env: Env): Headers {
+  const headers = new Headers({
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
+  });
+  const origin = request.headers.get('Origin');
+  const allowedOrigins = (env.CORS_ORIGINS || '')
+    .split(',')
+    .map((allowedOrigin) => allowedOrigin.trim())
+    .filter(Boolean);
+
+  if (origin && allowedOrigins.includes(origin)) {
+    headers.set('Access-Control-Allow-Origin', origin);
+  }
+
+  return headers;
+}
+
+function jsonResponse(body: unknown, status: number, headers: Headers): Response {
+  headers.set('Content-Type', 'application/json');
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+function getSupabase(env: Env) {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+}
+
 // Helper function to dispatch SMS / WhatsApp notification and log
 async function sendDispatchNotification(
   supabase: any,
@@ -640,7 +683,7 @@ export default {
 
       // POST /api/fleet/vehicles
       if (request.method === 'POST' && path === '/api/fleet/vehicles') {
-        const body = await request.json() as Partial<Vehicle>;
+        const body = await request.json() as Partial<Vehicle> & { total_capacity?: number };
         const { site_id, registration_number, model, category } = body;
 
         if (!site_id || !registration_number || !model || !category) {
