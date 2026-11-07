@@ -477,6 +477,123 @@ export default {
         }
       }
 
+      
+      // POST /api/telemetry/ping
+      if (request.method === 'POST' && path === '/api/telemetry/ping') {
+        const body = await request.json() as {
+          booking_id: string;
+          vehicle_id: string;
+          latitude: number;
+          longitude: number;
+          speed?: number;
+          heading?: number;
+          accuracy?: number;
+        };
+
+        if (!body.booking_id || !body.vehicle_id || body.latitude === undefined || body.longitude === undefined) {
+          return jsonResponse({ error: 'Missing required GPS parameters' }, 400, corsHeaders);
+        }
+
+        // Insert GPS coordinate ping
+        const { error: insErr } = await supabase.from('vehicle_telemetry').insert({
+          booking_id: body.booking_id,
+          vehicle_id: body.vehicle_id,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          speed: body.speed || 0.0,
+          heading: body.heading || 0.0,
+          accuracy: body.accuracy || 0.0,
+          recorded_at: new Date().toISOString()
+        });
+
+        if (insErr) throw insErr;
+
+        // Ensure vehicle status is updated to ON_TRIP
+        await supabase
+          .from('vehicles')
+          .update({ status: 'ON_TRIP' })
+          .eq('id', body.vehicle_id);
+
+        return jsonResponse({ success: true, timestamp: new Date().toISOString() }, 200, corsHeaders);
+      }
+
+      // GET /api/telemetry/live?booking_id=...
+      if (request.method === 'GET' && path === '/api/telemetry/live') {
+        const bookingId = url.searchParams.get('booking_id');
+        if (!bookingId) {
+          return jsonResponse({ error: 'booking_id is required' }, 400, corsHeaders);
+        }
+
+        // 1. Fetch trip and allotted vehicle info
+        const { data: booking, error: bErr } = await supabase
+          .from('bookings')
+          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(*), drivers!bookings_allotted_driver_id_fkey(*)')
+          .eq('id', bookingId)
+          .single();
+
+        if (bErr || !booking) {
+          return jsonResponse({ error: 'Trip not found' }, 404, corsHeaders);
+        }
+
+        // 2. Fetch latest telemetry coordinate
+        const { data: latestPing } = await supabase
+          .from('vehicle_telemetry')
+          .select('*')
+          .eq('booking_id', bookingId)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        // Target coordinates (destination or fallback)
+        const dest = booking.destination_coords || { lat: 21.7051, lng: 72.9959 };
+        const currentLat = latestPing?.latitude || booking.origin_coords?.lat || 22.3072;
+        const currentLng = latestPing?.longitude || booking.origin_coords?.lng || 73.1812;
+
+        // Haversine Distance Calculation (km)
+        const toRad = (x: number) => (x * Math.PI) / 180;
+        const R = 6371; // Earth's radius in km
+        const dLat = toRad(dest.lat - currentLat);
+        const dLng = toRad(dest.lng - currentLng);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(currentLat)) * Math.cos(toRad(dest.lat)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceKm = Math.round(R * c * 10) / 10;
+
+        // Estimated Time of Arrival (Assuming avg transit speed 45 km/h)
+        const etaMinutes = Math.max(1, Math.round((distanceKm / 45) * 60));
+
+        return jsonResponse({
+          success: true,
+          tracking: {
+            booking_reference: booking.booking_reference,
+            status: booking.status,
+            vehicle: booking.vehicles,
+            driver: booking.drivers,
+            current_position: {
+              latitude: currentLat,
+              longitude: currentLng,
+              speed: latestPing?.speed || 0,
+              heading: latestPing?.heading || 0,
+              last_updated: latestPing?.recorded_at || null
+            },
+            origin: {
+              name: booking.origin_location,
+              coords: booking.origin_coords || { lat: 22.3072, lng: 73.1812 }
+            },
+            destination: {
+              name: booking.destination_location,
+              coords: dest
+            },
+            telemetry: {
+              remaining_distance_km: distanceKm,
+              estimated_arrival_minutes: etaMinutes
+            }
+          }
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -671,6 +788,123 @@ export default {
           console.error('Unhandled analytics route error:', err);
           return jsonResponse({ error: err.message || 'Internal analytics error' }, 500, corsHeaders);
         }
+      }
+
+      
+      // POST /api/telemetry/ping
+      if (request.method === 'POST' && path === '/api/telemetry/ping') {
+        const body = await request.json() as {
+          booking_id: string;
+          vehicle_id: string;
+          latitude: number;
+          longitude: number;
+          speed?: number;
+          heading?: number;
+          accuracy?: number;
+        };
+
+        if (!body.booking_id || !body.vehicle_id || body.latitude === undefined || body.longitude === undefined) {
+          return jsonResponse({ error: 'Missing required GPS parameters' }, 400, corsHeaders);
+        }
+
+        // Insert GPS coordinate ping
+        const { error: insErr } = await supabase.from('vehicle_telemetry').insert({
+          booking_id: body.booking_id,
+          vehicle_id: body.vehicle_id,
+          latitude: body.latitude,
+          longitude: body.longitude,
+          speed: body.speed || 0.0,
+          heading: body.heading || 0.0,
+          accuracy: body.accuracy || 0.0,
+          recorded_at: new Date().toISOString()
+        });
+
+        if (insErr) throw insErr;
+
+        // Ensure vehicle status is updated to ON_TRIP
+        await supabase
+          .from('vehicles')
+          .update({ status: 'ON_TRIP' })
+          .eq('id', body.vehicle_id);
+
+        return jsonResponse({ success: true, timestamp: new Date().toISOString() }, 200, corsHeaders);
+      }
+
+      // GET /api/telemetry/live?booking_id=...
+      if (request.method === 'GET' && path === '/api/telemetry/live') {
+        const bookingId = url.searchParams.get('booking_id');
+        if (!bookingId) {
+          return jsonResponse({ error: 'booking_id is required' }, 400, corsHeaders);
+        }
+
+        // 1. Fetch trip and allotted vehicle info
+        const { data: booking, error: bErr } = await supabase
+          .from('bookings')
+          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(*), drivers!bookings_allotted_driver_id_fkey(*)')
+          .eq('id', bookingId)
+          .single();
+
+        if (bErr || !booking) {
+          return jsonResponse({ error: 'Trip not found' }, 404, corsHeaders);
+        }
+
+        // 2. Fetch latest telemetry coordinate
+        const { data: latestPing } = await supabase
+          .from('vehicle_telemetry')
+          .select('*')
+          .eq('booking_id', bookingId)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        // Target coordinates (destination or fallback)
+        const dest = booking.destination_coords || { lat: 21.7051, lng: 72.9959 };
+        const currentLat = latestPing?.latitude || booking.origin_coords?.lat || 22.3072;
+        const currentLng = latestPing?.longitude || booking.origin_coords?.lng || 73.1812;
+
+        // Haversine Distance Calculation (km)
+        const toRad = (x: number) => (x * Math.PI) / 180;
+        const R = 6371; // Earth's radius in km
+        const dLat = toRad(dest.lat - currentLat);
+        const dLng = toRad(dest.lng - currentLng);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(currentLat)) * Math.cos(toRad(dest.lat)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceKm = Math.round(R * c * 10) / 10;
+
+        // Estimated Time of Arrival (Assuming avg transit speed 45 km/h)
+        const etaMinutes = Math.max(1, Math.round((distanceKm / 45) * 60));
+
+        return jsonResponse({
+          success: true,
+          tracking: {
+            booking_reference: booking.booking_reference,
+            status: booking.status,
+            vehicle: booking.vehicles,
+            driver: booking.drivers,
+            current_position: {
+              latitude: currentLat,
+              longitude: currentLng,
+              speed: latestPing?.speed || 0,
+              heading: latestPing?.heading || 0,
+              last_updated: latestPing?.recorded_at || null
+            },
+            origin: {
+              name: booking.origin_location,
+              coords: booking.origin_coords || { lat: 22.3072, lng: 73.1812 }
+            },
+            destination: {
+              name: booking.destination_location,
+              coords: dest
+            },
+            telemetry: {
+              remaining_distance_km: distanceKm,
+              estimated_arrival_minutes: etaMinutes
+            }
+          }
+        }, 200, corsHeaders);
       }
 
       // GET /api/fleet/vehicles?site_id=...&category=...

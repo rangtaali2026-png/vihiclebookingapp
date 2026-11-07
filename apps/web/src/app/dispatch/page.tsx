@@ -295,6 +295,14 @@ export default function DispatchPage() {
                         >
                           📩 Alerts
                         </button>
+                        <Link
+                          href={`/track?id=${encodeURIComponent(b.id)}`}
+                          className="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                          title="Open Live Transit Radar"
+                        >
+                          📡 Track
+                        </Link>
+                        
                         {b.status === 'DISPATCHED' && (
                           <>
                             <button
