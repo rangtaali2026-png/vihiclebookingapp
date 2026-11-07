@@ -88,15 +88,6 @@ async function sendDispatchNotification(
 }
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // 1. Immediate Preflight CORS bypass
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
-    }
-
-    
     const corsHeaders = getCorsHeaders(request, env);
 
     if (request.method === 'OPTIONS') {
@@ -117,7 +108,7 @@ export default {
       }, 200, corsHeaders);
     }
 
-    
+    try {
       const supabase = getSupabase(env);
 
       // --- FLEET INVENTORY ENDPOINTS ---
@@ -883,12 +874,6 @@ export default {
   },
 
   // Cloudflare Queue Consumer for dispatch notifications
-    // Default 404 fallback
-    return jsonResponse({ error: 'Not Found' }, 404, corsHeaders);
-  },
-
-  
-
   async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
     for (const message of batch.messages) {
