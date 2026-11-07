@@ -594,6 +594,40 @@ export default {
         }, 200, corsHeaders);
       }
 
+      
+      // GET /api/auth/me - Retrieve current caller profile & role boundaries
+      if (request.method === 'GET' && path === '/api/auth/me') {
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader) {
+          return jsonResponse({ error: 'Missing Authorization header' }, 401, corsHeaders);
+        }
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
+        if (uErr || !user) {
+          return jsonResponse({ error: 'Unauthorized session' }, 401, corsHeaders);
+        }
+
+        const { data: roleProfile, error: rErr } = await supabase
+          .from('user_roles')
+          .select('*, sites(*)')
+          .eq('user_id', user.id)
+          .single();
+
+        return jsonResponse({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            profile: roleProfile || {
+              role: 'EMPLOYEE_RIDER',
+              site_id: null,
+              full_name: user.email?.split('@')[0] || 'Employee'
+            }
+          }
+        }, 200, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -902,6 +936,40 @@ export default {
             telemetry: {
               remaining_distance_km: distanceKm,
               estimated_arrival_minutes: etaMinutes
+            }
+          }
+        }, 200, corsHeaders);
+      }
+
+      
+      // GET /api/auth/me - Retrieve current caller profile & role boundaries
+      if (request.method === 'GET' && path === '/api/auth/me') {
+        const authHeader = request.headers.get('Authorization');
+        if (!authHeader) {
+          return jsonResponse({ error: 'Missing Authorization header' }, 401, corsHeaders);
+        }
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: uErr } = await supabase.auth.getUser(token);
+        if (uErr || !user) {
+          return jsonResponse({ error: 'Unauthorized session' }, 401, corsHeaders);
+        }
+
+        const { data: roleProfile, error: rErr } = await supabase
+          .from('user_roles')
+          .select('*, sites(*)')
+          .eq('user_id', user.id)
+          .single();
+
+        return jsonResponse({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            profile: roleProfile || {
+              role: 'EMPLOYEE_RIDER',
+              site_id: null,
+              full_name: user.email?.split('@')[0] || 'Employee'
             }
           }
         }, 200, corsHeaders);
