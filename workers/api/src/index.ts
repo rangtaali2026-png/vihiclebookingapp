@@ -88,6 +88,15 @@ async function sendDispatchNotification(
 }
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // 1. Immediate Preflight CORS bypass
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+      });
+    }
+
+    try {
     const corsHeaders = getCorsHeaders(request, env);
 
     if (request.method === 'OPTIONS') {
@@ -874,6 +883,21 @@ export default {
   },
 
   // Cloudflare Queue Consumer for dispatch notifications
+      } catch (fatalError: any) {
+      console.error('Fatal unhandled Worker error:', fatalError);
+      return new Response(JSON.stringify({
+        error: fatalError?.message || 'Internal Worker Error',
+        stack: fatalError?.stack
+      }), {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  },
+
   async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
     for (const message of batch.messages) {
