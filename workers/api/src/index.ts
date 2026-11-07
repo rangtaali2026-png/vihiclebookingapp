@@ -39,7 +39,13 @@ function jsonResponse(body: unknown, status: number, headers: Headers): Response
 }
 
 function getSupabase(env: Env) {
-  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+  const url = env.SUPABASE_URL || '';
+  const key = env.SUPABASE_ANON_KEY || (env as any).SUPABASE_SERVICE_ROLE_KEY || (env as any).SUPABASE_KEY || '';
+  if (!url || !key) {
+    const presentKeys = Object.keys(env || {}).filter(k => k.toLowerCase().includes('supabase'));
+    throw new Error(`supabaseKey is required. Detected Supabase env variables: [${presentKeys.join(', ')}]`);
+  }
+  return createClient(url, key);
 }
 
 // Helper function to dispatch SMS / WhatsApp notification and log
@@ -918,7 +924,7 @@ export default {
 
   // Cloudflare Queue Consumer for dispatch notifications
   async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
+    const supabase = getSupabase(env);
     for (const message of batch.messages) {
       const { booking, vehicle, driver, passengers } = message.body;
       await sendDispatchNotification(supabase, env, booking, vehicle, driver, passengers);
