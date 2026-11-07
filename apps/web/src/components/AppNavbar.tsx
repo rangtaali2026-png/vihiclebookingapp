@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import RoleSwitcher from './RoleSwitcher';
 import { useAuth } from '@/lib/auth-context';
-import { Bus, Activity, Calendar, ShieldCheck, Compass } from 'lucide-react';
+import { Bus, Activity, Calendar, FileSpreadsheet, ShieldCheck, Compass } from 'lucide-react';
 
 export default function AppNavbar() {
   const pathname = usePathname();
@@ -18,6 +18,7 @@ export default function AppNavbar() {
     { href: '/shifts', label: 'Shift Rosters', icon: Bus, visible: true },
     { href: '/dispatch', label: 'Dispatch', icon: Bus, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
     { href: '/analytics', label: 'Analytics', icon: Activity, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
+    { href: '/audit', label: 'Compliance & Audits', icon: FileSpreadsheet, visible: isSuperAdmin || session.role === 'PLANT_SUPERVISOR' || session.role === 'FLEET_ADMIN' },
     { href: '/super-admin/sites', label: 'Super Admin', icon: ShieldCheck, visible: isSuperAdmin },
   ];
 
