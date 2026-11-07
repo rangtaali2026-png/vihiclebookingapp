@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/web/android/**'
       - 'apps/web/capacitor.config.ts'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build-android:
