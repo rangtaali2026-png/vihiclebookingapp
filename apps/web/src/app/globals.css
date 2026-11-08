@@ -3,30 +3,31 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background-color: #020617; /* slate-950 */
-  color: #f8fafc; /* slate-50 */
-  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  background-color: #F3F6FB;
+  color: #182B45;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Unified Card Styling */
-.plant-card {
-  @apply rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-xl backdrop-blur-md;
+/* Glassmorphism Card Style */
+.smart-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px -5px rgba(20, 43, 74, 0.06);
 }
 
-/* Unified Input Fields */
-.plant-input {
-  @apply w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition;
+/* Gradient Pill & Accents */
+.smart-gradient-blue {
+  background: linear-gradient(135deg, #2878F0 0%, #20C4D8 100%);
 }
 
-/* Unified Action Buttons */
-.plant-btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-950/40 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] transition disabled:opacity-50;
-}
-
-.plant-btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition active:scale-[0.98];
+.smart-gradient-navy {
+  background: linear-gradient(135deg, #142B4A 0%, #1e3a63 100%);
 }

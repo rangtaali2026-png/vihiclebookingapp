@@ -2,641 +2,606 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AppNavbar from '@/components/AppNavbar';
+import { useAuth } from '@/lib/auth-context';
 import { fetchApi } from '@/lib/api';
-import type { Booking, Vehicle, VehicleCategory, BookingType, BookingPassenger } from '@plant-transit/shared-types';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  ShieldCheck,
+  CheckCircle2,
+  Clock4,
+  ArrowRight,
+  RotateCcw,
+  Sparkles,
+  Car,
+  ChevronRight,
+  TrendingUp,
+  AlertCircle
+} from 'lucide-react';
 
-interface PassengerInput {
+interface Passenger {
+  name: string;
   employee_id: string;
-  employee_name: string;
-  department: string;
-  contact_number: string;
-  pickup_point: string;
-  drop_point: string;
+  department?: string;
+  mobile?: string;
+  pickup_point?: string;
 }
 
-export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+interface Booking {
+  id: string;
+  booking_reference: string;
+  booking_type: string;
+  origin_location: string;
+  destination_location: string;
+  pickup_time: string;
+  passenger_count: number;
+  status: string;
+  purpose: string;
+  allotted_vehicle_id?: string;
+  vehicles?: { registration_number: string; model: string };
+  drivers?: { name: string; mobile_number: string };
+}
 
-  // Form State
-  const [siteId] = useState('11111111-1111-1111-1111-111111111111');
-  const [requesterId] = useState('00000000-0000-0000-0000-000000000002');
-  const [bookingType, setBookingType] = useState<BookingType>('PRIVATE');
-  const [targetCategory, setTargetCategory] = useState<VehicleCategory>('SEDAN_4');
-  const [preferredVehicleId, setPreferredVehicleId] = useState<string>('');
-  const [startTime, setStartTime] = useState<string>('');
-  const [endTime, setEndTime] = useState<string>('');
-  const [originLocation, setOriginLocation] = useState<string>('Main Plant Gate 1');
-  const [destinationLocation, setDestinationLocation] = useState<string>('City Transit Hub');
-  const [purpose, setPurpose] = useState<string>('Client Plant Visit');
+export default function SmartDriveDashboard() {
+  const { session } = useAuth();
 
-  // Passenger Manifest State
-  const [passengers, setPassengers] = useState<PassengerInput[]>([
+  // Reservation Form State
+  const [bookingType, setBookingType] = useState<'EXCLUSIVE' | 'SHARED'>('EXCLUSIVE');
+  const [category, setCategory] = useState<'SEDAN' | 'SUV' | 'VAN' | 'BUS'>('SEDAN');
+  const [origin, setOrigin] = useState('Vadodara Chemical Complex Gate 1');
+  const [destination, setDestination] = useState('Dahej Heavy Engineering Unit');
+  const [pickupTime, setPickupTime] = useState(() => {
+    const d = new Date();
+    d.setHours(d.getHours() + 2);
+    return d.toISOString().slice(0, 16);
+  });
+  const [purpose, setPurpose] = useState('Cross-Plant Engineering Audit');
+  const [passengers, setPassengers] = useState<Passenger[]>([
     {
-      employee_id: 'EMP-1001',
-      employee_name: 'Lead Engineer',
-      department: 'Operations',
-      contact_number: '+91 9876543210',
-      pickup_point: 'Main Plant Gate 1',
-      drop_point: 'City Transit Hub',
-    },
+      name: session?.fullName || 'Dhaval Mungara',
+      employee_id: 'EMP-VAD-08',
+      department: 'Infrastructure & Systems',
+      mobile: '+91 98251 12345',
+      pickup_point: 'Admin Building'
+    }
   ]);
 
-  // Manifest Modal State
-  const [activeManifest, setActiveManifest] = useState<{
-    reference: string;
-    passengers: BookingPassenger[];
-  } | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Helper: Get max seat capacity based on selection
-  const getSelectedMaxCapacity = (): number => {
-    if (preferredVehicleId) {
-      const selected = vehicles.find((v) => v.id === preferredVehicleId);
-      if (selected?.seat_capacity) return selected.seat_capacity;
-    }
-    const categoryMap: Record<VehicleCategory, number> = {
-      SEDAN_4: 4,
-      MPV_6: 6,
-      BUS_42: 42,
-      BUS_52: 52,
-    };
-    return categoryMap[targetCategory] || 4;
-  };
-
-  const maxCapacity = getSelectedMaxCapacity();
-  const isOverCapacity = passengers.length > maxCapacity;
-
-  const loadData = async () => {
+  const loadBookings = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [bookingsRes, vehiclesRes] = await Promise.all([
-        fetchApi<{ success: boolean; bookings: Booking[] }>('/api/bookings'),
-        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/fleet/vehicles'),
-      ]);
-      setBookings(bookingsRes.bookings || []);
-      setVehicles(vehiclesRes.vehicles || []);
-    } catch (err: any) {
-      console.error(err);
+      const siteQuery = session?.siteId ? `?site_id=${session.siteId}` : '';
+      const res = await fetchApi<{ success: boolean; bookings: Booking[] }>(`/api/dispatch${siteQuery}`);
+      if (res.bookings) {
+        setBookings(res.bookings);
+      }
+    } catch (err) {
+      console.error('Error fetching bookings:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const now = new Date();
-    const start = new Date(now.getTime() + 60 * 60 * 1000);
-    const end = new Date(now.getTime() + 180 * 60 * 1000);
-    setStartTime(start.toISOString().slice(0, 16));
-    setEndTime(end.toISOString().slice(0, 16));
+    loadBookings();
+  }, [session?.siteId]);
 
-    loadData();
-  }, []);
-
-  const addPassenger = () => {
-    if (passengers.length >= maxCapacity) {
-      alert(`Cannot add more passengers: selected vehicle/category allows a maximum of ${maxCapacity} seats.`);
-      return;
-    }
-    setPassengers([
-      ...passengers,
-      {
-        employee_id: `EMP-${1000 + passengers.length + 1}`,
-        employee_name: '',
-        department: 'Operations',
-        contact_number: '',
-        pickup_point: originLocation,
-        drop_point: destinationLocation,
-      },
-    ]);
-  };
-
-  const removePassenger = (index: number) => {
-    if (passengers.length === 1) return;
-    setPassengers(passengers.filter((_, i) => i !== index));
-  };
-
-  const updatePassenger = (index: number, field: keyof PassengerInput, val: string) => {
-    const updated = [...passengers];
-    updated[index][field] = val;
-    setPassengers(updated);
-  };
-
-  const handleReserve = async (e: React.FormEvent) => {
+  // Handle Form Submission
+  const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!startTime || !endTime) return;
-
-    if (isOverCapacity) {
-      alert(`Passenger count (${passengers.length}) exceeds seat limit (${maxCapacity}). Adjust roster or choose a larger vehicle.`);
-      return;
-    }
+    setSubmitting(true);
+    setFeedback(null);
 
     try {
-      setSubmitting(true);
-      await fetchApi('/api/bookings/reserve', {
+      const payload = {
+        site_id: session?.siteId || '11111111-1111-1111-1111-111111111111',
+        booking_reference: `BK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employee_name: session?.fullName || 'Dhaval Mungara',
+        employee_email: session?.email || 'employee@planttransit.com',
+        department: passengers[0]?.department || 'Plant Operations',
+        booking_type: bookingType === 'EXCLUSIVE' ? 'PRIVATE_DUTY' : 'SHARED_COMMUTE',
+        target_category: category,
+        origin_location: origin,
+        destination_location: destination,
+        pickup_time: new Date(pickupTime).toISOString(),
+        passenger_count: passengers.length,
+        passenger_manifest: passengers,
+        status: 'PENDING',
+        purpose: purpose
+      };
+
+      await fetchApi('/api/dispatch/create', {
         method: 'POST',
-        body: JSON.stringify({
-          site_id: siteId,
-          requester_id: requesterId,
-          booking_type: bookingType,
-          target_category: targetCategory,
-          preferred_vehicle_id: preferredVehicleId || null,
-          scheduled_start_time: new Date(startTime).toISOString(),
-          scheduled_end_time: new Date(endTime).toISOString(),
-          origin_location: originLocation,
-          destination_location: destinationLocation,
-          purpose,
-          passengers,
-        }),
+        body: JSON.stringify(payload)
       });
 
-      alert('Booking successfully reserved with concurrency guard!');
-      await loadData();
+      setFeedback({
+        type: 'success',
+        message: 'Your vehicle reservation request has been submitted successfully.'
+      });
+      loadBookings();
     } catch (err: any) {
-      alert(`Reservation Failed: ${err.message}`);
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to submit reservation'
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handle1ClickRebook = async (bookingId: string) => {
-    const confirm = window.confirm('Rebook this exact itinerary for tomorrow same time?');
-    if (!confirm) return;
-
-    try {
-      const tomorrowStart = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const tomorrowEnd = new Date(tomorrowStart.getTime() + 2 * 60 * 60 * 1000);
-
-      await fetchApi(`/api/bookings/${bookingId}/rebook`, {
-        method: 'POST',
-        body: JSON.stringify({
-          scheduled_start_time: tomorrowStart.toISOString(),
-          scheduled_end_time: tomorrowEnd.toISOString(),
-        }),
-      });
-
-      alert('1-Click Re-booking successful!');
-      await loadData();
-    } catch (err: any) {
-      alert(`Re-booking failed: ${err.message}`);
-    }
+  // Quick Action: Book Again
+  const handleBookAgain = (prev: Booking) => {
+    setOrigin(prev.origin_location);
+    setDestination(prev.destination_location);
+    setPurpose(`Re-booking: ${prev.purpose || 'Official Plant Transit'}`);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
-  const handleCancelBooking = async (bookingId: string, reference: string) => {
-    const confirm = window.confirm(`Are you sure you want to cancel booking ${reference}?`);
-    if (!confirm) return;
-
-    try {
-      await fetchApi(`/api/bookings/${bookingId}/cancel`, {
-        method: 'PATCH',
-      });
-      alert(`Booking ${reference} has been cancelled.`);
-      await loadData();
-    } catch (err: any) {
-      alert(`Cancellation failed: ${err.message}`);
-    }
-  };
+  // Metrics
+  const totalBookings = bookings.length;
+  const upcomingTrips = bookings.filter(b => b.status === 'DISPATCHED' || b.status === 'PENDING').length;
+  const pendingApproval = bookings.filter(b => b.status === 'PENDING').length;
+  const completedTrips = bookings.filter(b => b.status === 'COMPLETED').length;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-smart-bg flex flex-col">
+      <AppNavbar />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-8">
         
-        {/* Navigation & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+        {/* Welcome Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-800">
-                ← Home
-              </Link>
-              <span className="text-slate-300">/</span>
-              <span className="text-sm font-semibold text-slate-800">Booking Engine</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-smart-cyan animate-pulse"></span>
+              <span className="text-xs font-bold text-smart-blue uppercase tracking-wider">Enterprise Mobility Portal</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Vehicle Booking Engine</h1>
-            <p className="text-sm text-slate-400">Reserve dedicated cars or book shared shuttle seats with atomic concurrency safety</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-smart-navy tracking-tight mt-1">
+              Welcome back, {session?.fullName || 'Employee'}
+            </h1>
+            <p className="text-xs sm:text-sm text-smart-muted mt-0.5">
+              Request, track and manage your manufacturing plant transits across Gujarat facilities.
+            </p>
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex items-center gap-2">
             <Link
               href="/board"
-              className="inline-flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 px-3.5 py-2 text-sm font-semibold text-purple-700 shadow-xs hover:bg-purple-100 transition"
+              className="inline-flex items-center gap-2 bg-white border border-smart-border text-smart-navy hover:text-smart-blue px-4 py-2.5 rounded-xl text-xs font-bold shadow-smart-sm hover:shadow-smart transition"
             >
-              📱 Boarding Check-In
+              <span>Gate Boarding Pass</span>
+              <ChevronRight className="w-4 h-4 text-smart-muted" />
             </Link>
             <Link
-              href="/fleet"
-              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+              href="/dispatch"
+              className="inline-flex items-center gap-2 smart-gradient-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-smart-lg hover:opacity-95 transition"
             >
-              Manage Fleet Assets →
+              <span>Fleet Operations</span>
+              <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
 
-        {/* Booking Creation Form */}
-        <div className="bg-white rounded-xl border border-slate-800 p-6 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">New Reservation Request</h2>
-            
-            {/* Private vs Shared Mode Selector */}
-            <div className="inline-flex rounded-lg border border-slate-800 bg-slate-100 p-1">
-              <button
-                type="button"
-                onClick={() => setBookingType('PRIVATE')}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  bookingType === 'PRIVATE' ? 'bg-white text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Private (Exclusive Vehicle)
-              </button>
-              <button
-                type="button"
-                onClick={() => setBookingType('SHARED')}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  bookingType === 'SHARED' ? 'bg-white text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Shared (Seat Allocation)
-              </button>
+        {/* Dashboard Overview Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Total Bookings */}
+          <div className="smart-glass-card p-5 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Total Bookings</span>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-smart-blue flex items-center justify-center font-bold">
+                <Car className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-black text-smart-navy">{totalBookings}</span>
+              <p className="text-[11px] text-smart-muted mt-1 flex items-center gap-1 font-medium">
+                <TrendingUp className="w-3.5 h-3.5 text-smart-success" />
+                All journeys recorded
+              </p>
             </div>
           </div>
 
-          <form onSubmit={handleReserve} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Target Vehicle Category
-                </label>
-                <select
-                  value={targetCategory}
-                  onChange={(e) => setTargetCategory(e.target.value as VehicleCategory)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
-                >
-                  <option value="SEDAN_4">Sedan (4 Seater)</option>
-                  <option value="MPV_6">MPV / SUV (6 Seater)</option>
-                  <option value="BUS_42">Plant Bus (42 Seater)</option>
-                  <option value="BUS_52">Plant Bus (52 Seater)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Assigned / Preferred Vehicle
-                </label>
-                <select
-                  value={preferredVehicleId}
-                  onChange={(e) => setPreferredVehicleId(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
-                >
-                  <option value="">Auto-allocate Best Fit</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.registration_number} - {v.model} ({v.seat_capacity} seats)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Purpose of Transit
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Scheduled Departure
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                  Scheduled Arrival / End
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Origin
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={originLocation}
-                    onChange={(e) => setOriginLocation(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    Destination
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={destinationLocation}
-                    onChange={(e) => setDestinationLocation(e.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  />
-                </div>
+          {/* Upcoming Trips */}
+          <div className="smart-glass-card p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Upcoming Trips</span>
+              <div className="w-10 h-10 rounded-xl bg-cyan-50 text-smart-cyan flex items-center justify-center font-bold">
+                <Clock className="w-5 h-5" />
               </div>
             </div>
+            <div className="mt-3">
+              <span className="text-3xl font-black text-smart-blue">{upcomingTrips}</span>
+              <p className="text-[11px] text-smart-muted mt-1 font-medium">Active dispatches & queued</p>
+            </div>
+          </div>
 
-            {/* Passenger Manifest Section with Capacity Guard */}
-            <div className="border-t border-slate-100 pt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-white">
-                      Passenger Manifest ({passengers.length} / {maxCapacity} seats)
-                    </h3>
-                    {isOverCapacity && (
-                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
-                        Capacity Exceeded!
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">Boarding roster for this trip</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addPassenger}
-                  disabled={passengers.length >= maxCapacity}
-                  className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-                >
-                  + Add Passenger
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {passengers.map((p, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-800 text-xs">
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Employee ID"
-                        value={p.employee_id}
-                        onChange={(e) => updatePassenger(idx, 'employee_id', e.target.value)}
-                        className="w-full rounded border border-slate-300 p-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Full Name"
-                        value={p.employee_name}
-                        onChange={(e) => updatePassenger(idx, 'employee_name', e.target.value)}
-                        className="w-full rounded border border-slate-300 p-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Contact Phone"
-                        value={p.contact_number}
-                        onChange={(e) => updatePassenger(idx, 'contact_number', e.target.value)}
-                        className="w-full rounded border border-slate-300 p-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Pickup Point"
-                        value={p.pickup_point}
-                        onChange={(e) => updatePassenger(idx, 'pickup_point', e.target.value)}
-                        className="w-full rounded border border-slate-300 p-1.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        placeholder="Drop Point"
-                        value={p.drop_point}
-                        onChange={(e) => updatePassenger(idx, 'drop_point', e.target.value)}
-                        className="w-full rounded border border-slate-300 p-1.5 bg-white"
-                      />
-                    </div>
-                    <div className="flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removePassenger(idx)}
-                        disabled={passengers.length === 1}
-                        className="text-red-600 hover:text-red-800 disabled:opacity-30 font-medium"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
+          {/* Pending Approval */}
+          <div className="smart-glass-card p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Pending Approval</span>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-smart-warning flex items-center justify-center font-bold">
+                <Clock4 className="w-5 h-5" />
               </div>
             </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={submitting || isOverCapacity}
-                className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {submitting ? 'Reserving...' : isOverCapacity ? 'Seat Limit Exceeded' : 'Confirm Reservation'}
-              </button>
+            <div className="mt-3">
+              <span className="text-3xl font-black text-smart-warning">{pendingApproval}</span>
+              <p className="text-[11px] text-smart-muted mt-1 font-medium">Awaiting plant supervisor</p>
             </div>
-          </form>
+          </div>
+
+          {/* Completed Trips */}
+          <div className="smart-glass-card p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Completed Trips</span>
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-smart-success flex items-center justify-center font-bold">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <span className="text-3xl font-black text-smart-success">{completedTrips}</span>
+              <p className="text-[11px] text-smart-muted mt-1 font-medium">Verified arrival at gates</p>
+            </div>
+          </div>
         </div>
 
-        {/* Existing Bookings Table */}
-        <div className="bg-white rounded-xl border border-slate-800 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-50">
-            <h3 className="text-sm font-semibold text-slate-800">
-              Recent Plant Bookings ({bookings.length})
-            </h3>
+        {/* Main Dashboard Layout: Left (Booking Form) + Right (3D Vehicle Showcase) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Side: New Vehicle Booking Form (7 Cols) */}
+          <div className="lg:col-span-7 smart-glass-card p-6 sm:p-7 space-y-6">
+            <div className="flex items-center justify-between border-b border-smart-border pb-4">
+              <div>
+                <span className="text-[11px] font-bold text-smart-blue uppercase tracking-wider">Fast Reservation</span>
+                <h2 className="text-lg font-black text-smart-navy mt-0.5">Book Official Plant Transit</h2>
+              </div>
+
+              {/* Exclusive / Shared Toggle */}
+              <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold text-smart-muted">
+                <button
+                  type="button"
+                  onClick={() => setBookingType('EXCLUSIVE')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    bookingType === 'EXCLUSIVE'
+                      ? 'bg-white text-smart-blue shadow-sm font-black'
+                      : 'hover:text-smart-navy'
+                  }`}
+                >
+                  Exclusive Car
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingType('SHARED')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    bookingType === 'SHARED'
+                      ? 'bg-white text-smart-blue shadow-sm font-black'
+                      : 'hover:text-smart-navy'
+                  }`}
+                >
+                  Shared Shuttle
+                </button>
+              </div>
+            </div>
+
+            {feedback && (
+              <div className={`p-4 rounded-xl text-xs flex items-center gap-2.5 ${
+                feedback.type === 'success'
+                  ? 'bg-emerald-50 border border-emerald-200 text-smart-success font-semibold'
+                  : 'bg-red-50 border border-red-200 text-smart-danger font-semibold'
+              }`}>
+                {feedback.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                <span>{feedback.message}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateBooking} className="space-y-4">
+              
+              {/* Vehicle Category Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-2">
+                  Target Vehicle Category
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { id: 'SEDAN', label: 'Executive Sedan', seats: '4 Seats' },
+                    { id: 'SUV', label: 'Premium SUV', seats: '6 Seats' },
+                    { id: 'VAN', label: 'Plant Van', seats: '12 Seats' },
+                    { id: 'BUS', label: 'Transit Bus', seats: '32-50 Seats' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategory(cat.id as any)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        category === cat.id
+                          ? 'border-smart-blue bg-blue-50/70 shadow-sm ring-1 ring-smart-blue'
+                          : 'border-smart-border bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <p className={`text-xs font-black ${category === cat.id ? 'text-smart-blue' : 'text-smart-navy'}`}>
+                        {cat.label}
+                      </p>
+                      <p className="text-[10px] text-smart-muted mt-0.5">{cat.seats}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Origin and Destination */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-1.5">
+                    Origin Pick-up Hub
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-smart-blue absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={origin}
+                      onChange={(e) => setOrigin(e.target.value)}
+                      placeholder="e.g. Vadodara Gate 1"
+                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-1.5">
+                    Destination Plant
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-smart-cyan absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={destination}
+                      onChange={(e) => setDestination(e.target.value)}
+                      placeholder="e.g. Dahej Heavy Complex"
+                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Departure Time & Purpose */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-1.5">
+                    Departure Date & Time
+                  </label>
+                  <div className="relative">
+                    <Calendar className="w-4 h-4 text-smart-muted absolute left-3.5 top-3" />
+                    <input
+                      type="datetime-local"
+                      required
+                      value={pickupTime}
+                      onChange={(e) => setPickupTime(e.target.value)}
+                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-1.5">
+                    Transit Purpose / Cost Center
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    placeholder="e.g. Safety Inspection, Client Visit"
+                    className="w-full bg-slate-50/80 border border-smart-border rounded-xl px-3.5 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              {/* Submit CTA */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-3.5 rounded-xl smart-gradient-blue text-white font-black text-xs shadow-smart-lg hover:opacity-95 active:scale-98 transition flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>{submitting ? 'Reserving Asset...' : 'Confirm Vehicle Reservation'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Right Side: 3D Vehicle Illustration & Mobility Feature Card (5 Cols) */}
+          <div className="lg:col-span-5 space-y-5">
+            
+            {/* 3D Vehicle Showcase Card */}
+            <div className="smart-glass-card p-6 relative overflow-hidden bg-gradient-to-br from-white via-white to-blue-50/40 border border-smart-border">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold tracking-widest text-smart-blue uppercase bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                  Fleet Ready
+                </span>
+                <span className="text-xs font-black text-smart-navy">Gujarat Plant Pool</span>
+              </div>
+
+              {/* 3D Style Vehicle Graphic */}
+              <div className="my-6 relative flex items-center justify-center">
+                <div className="w-56 h-56 rounded-full bg-gradient-to-tr from-blue-100/60 to-cyan-100/40 absolute -z-10 blur-xl"></div>
+                
+                <svg className="w-full h-44 drop-shadow-2xl" viewBox="0 0 500 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Subtle Road Shadow */}
+                  <ellipse cx="250" cy="205" rx="190" ry="16" fill="#142B4A" fillOpacity="0.12" />
+                  
+                  {/* Vehicle Body 3D Geometry */}
+                  <path d="M70 170 C70 150 90 145 110 145 L150 145 L200 85 C215 70 235 65 260 65 L360 65 C390 65 410 80 425 105 L455 145 C475 145 490 155 490 170 C490 185 470 190 450 190 L90 190 C70 190 70 180 70 170 Z" fill="url(#paint0_linear)" />
+                  
+                  {/* Metallic Glaze / Highlight */}
+                  <path d="M155 140 L198 88 C210 75 225 70 250 70 L350 70 C375 70 395 82 410 105 L445 140 Z" fill="#FFFFFF" fillOpacity="0.75" />
+                  
+                  {/* Tinted Aero Windows */}
+                  <path d="M210 92 L260 92 L260 135 L165 135 Z" fill="#142B4A" fillOpacity="0.85" />
+                  <path d="M275 92 L345 92 C365 92 380 102 392 120 L402 135 L275 135 Z" fill="#142B4A" fillOpacity="0.85" />
+                  
+                  {/* Modern LED Headlight Bar */}
+                  <path d="M470 152 L485 152 C488 152 490 155 488 158 L475 165 Z" fill="#20C4D8" />
+                  <ellipse cx="480" cy="155" rx="12" ry="5" fill="#20C4D8" fillOpacity="0.4" />
+
+                  {/* 3D Alloy Wheels */}
+                  <circle cx="160" cy="188" r="32" fill="#142B4A" />
+                  <circle cx="160" cy="188" r="22" fill="#E2E8F0" />
+                  <circle cx="160" cy="188" r="10" fill="#2878F0" />
+                  
+                  <circle cx="390" cy="188" r="32" fill="#142B4A" />
+                  <circle cx="390" cy="188" r="22" fill="#E2E8F0" />
+                  <circle cx="390" cy="188" r="10" fill="#2878F0" />
+
+                  <defs>
+                    <linearGradient id="paint0_linear" x1="70" y1="65" x2="490" y2="190" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#2878F0" />
+                      <stop offset="0.6" stopColor="#1E65D0" />
+                      <stop offset="1" stopColor="#142B4A" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+
+              {/* Specs Badge Strip */}
+              <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-smart-border">
+                <div className="p-2 rounded-xl bg-slate-50">
+                  <span className="text-[10px] text-smart-muted uppercase font-bold block">Telemetry</span>
+                  <span className="text-xs font-black text-smart-success">Live GPS</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-50">
+                  <span className="text-[10px] text-smart-muted uppercase font-bold block">Sanitization</span>
+                  <span className="text-xs font-black text-smart-navy">HSE Certified</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-50">
+                  <span className="text-[10px] text-smart-muted uppercase font-bold block">Toll Gate</span>
+                  <span className="text-xs font-black text-smart-blue">Fastag Linked</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Mobility Assistance Card */}
+            <div className="smart-glass-card p-5 bg-gradient-to-br from-smart-navy to-[#1a385f] text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-smart-cyan">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">Automated Shift Commutes</h3>
+                  <p className="text-[11px] text-slate-300">Continuous plant transit runs scheduled at 06:00, 14:00, and 22:00.</p>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+                <span className="text-slate-300">Roster Attendance Mode</span>
+                <Link href="/shifts" className="text-smart-cyan hover:underline font-bold flex items-center gap-1">
+                  <span>View Rosters</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Bottom Section: Upcoming Bookings & Recent History with "Book Again" */}
+        <div className="smart-glass-card p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-smart-border pb-4">
+            <div>
+              <span className="text-[11px] font-bold text-smart-blue uppercase tracking-wider">Transit Manifest</span>
+              <h2 className="text-lg font-black text-smart-navy mt-0.5">Your Active & Recent Journeys</h2>
+            </div>
             <button
-              onClick={loadData}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              onClick={loadBookings}
+              className="text-xs text-smart-blue hover:underline font-bold flex items-center gap-1 self-start sm:self-auto"
             >
-              Refresh
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Refresh Schedule</span>
             </button>
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500">Loading bookings...</div>
+            <div className="py-12 text-center text-xs text-smart-muted">Loading journey manifests...</div>
           ) : bookings.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">No bookings recorded yet.</div>
+            <div className="py-12 text-center text-xs text-smart-muted border border-dashed border-smart-border rounded-xl">
+              No previous bookings found. Reserve your first vehicle above.
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500">
-                    <th className="py-3 px-4">Ref #</th>
-                    <th className="py-3 px-4">Mode</th>
-                    <th className="py-3 px-4">Route</th>
-                    <th className="py-3 px-4">Departure</th>
-                    <th className="py-3 px-4">Manifest</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {bookings.map((b) => (
-                    <tr key={b.id} className="hover:bg-slate-50/75 transition">
-                      <td className="py-3 px-4 font-mono font-medium text-white">{b.booking_reference}</td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
-                          {b.booking_type}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-700">
-                        {b.origin_location} → {b.destination_location}
-                      </td>
-                      <td className="py-3 px-4 text-slate-400 font-mono text-xs">
-                        {new Date(b.scheduled_start_time).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          type="button"
-                          onClick={() => setActiveManifest({
-                            reference: b.booking_reference,
-                            passengers: b.booking_passengers || [],
-                          })}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium underline"
-                        >
-                          👥 {b.passenger_count} Passenger{b.passenger_count > 1 ? 's' : ''}
-                        </button>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          b.status === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                          b.status === 'APPROVED' ? 'bg-blue-100 text-blue-800' :
-                          b.status === 'DISPATCHED' ? 'bg-purple-100 text-purple-800' :
-                          b.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                          'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right space-x-2">
-                        {b.status !== 'CANCELLED' && b.status !== 'COMPLETED' && (
-                          <button
-                            type="button"
-                            onClick={() => handleCancelBooking(b.id, b.booking_reference)}
-                            className="rounded border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                          >
-                            Cancel
-                          </button>
-                        )}
-                        {b.allotted_vehicle_id && (
-                          <Link
-                            href={`/board?vehicle_id=${b.allotted_vehicle_id}`}
-                            className="inline-flex items-center rounded border border-purple-300 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 shadow-xs"
-                            title="Open Passenger Boarding Scan View"
-                          >
-                            📱 Boarding Scan
-                          </Link>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handle1ClickRebook(b.id)}
-                          className="rounded border border-slate-800 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs"
-                          title="1-Click Re-book tomorrow"
-                        >
-                          ⚡ Re-book
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-smart-border">
+              {bookings.slice(0, 5).map((b) => (
+                <div key={b.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 p-2 rounded-xl transition">
+                  
+                  {/* Left: Route and Time */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-black text-smart-navy">{b.booking_reference}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        b.status === 'COMPLETED'
+                          ? 'bg-emerald-50 text-smart-success border border-emerald-200'
+                          : b.status === 'DISPATCHED'
+                          ? 'bg-blue-50 text-smart-blue border border-blue-200'
+                          : 'bg-amber-50 text-smart-warning border border-amber-200'
+                      }`}>
+                        {b.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs font-bold text-smart-navy">
+                      {b.origin_location} → <span className="text-smart-blue">{b.destination_location}</span>
+                    </p>
+
+                    <div className="flex items-center gap-4 text-[11px] text-smart-muted font-medium">
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {new Date(b.pickup_time).toLocaleString('en-IN', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      <span>•</span>
+                      <span>Passengers: <strong>{b.passenger_count || 1}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Right: Quick Action: Book Again */}
+                  <div className="flex items-center gap-2">
+                    {b.status === 'DISPATCHED' && (
+                      <Link
+                        href={`/track/${b.id}`}
+                        className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-smart-blue text-xs font-bold transition flex items-center gap-1.5"
+                      >
+                        <Car className="w-3.5 h-3.5" />
+                        <span>Track Live Radar</span>
+                      </Link>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleBookAgain(b)}
+                      className="px-3.5 py-2 rounded-xl border border-smart-border bg-white hover:bg-slate-50 text-smart-navy text-xs font-bold shadow-smart-sm transition flex items-center gap-1.5 active:scale-98"
+                    >
+                      <RotateCcw className="w-3 h-3 text-smart-blue" />
+                      <span>Book Again</span>
+                    </button>
+                  </div>
+
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-      </div>
-
-      {/* Passenger Manifest Modal */}
-      {activeManifest && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-base font-semibold text-white">
-                  Boarding Manifest: {activeManifest.reference}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Total Confirmed Riders: {activeManifest.passengers.length}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveManifest(null)}
-                className="text-slate-400 hover:text-slate-400 text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {activeManifest.passengers.length === 0 ? (
-              <p className="text-sm text-slate-500 py-4 text-center">No passenger roster details registered.</p>
-            ) : (
-              <div className="overflow-x-auto max-h-80">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-800 text-slate-500 uppercase">
-                      <th className="p-2">Emp ID</th>
-                      <th className="p-2">Name</th>
-                      <th className="p-2">Department</th>
-                      <th className="p-2">Contact</th>
-                      <th className="p-2">Pickup</th>
-                      <th className="p-2">Drop</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {activeManifest.passengers.map((p, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="p-2 font-mono font-medium text-white">{p.employee_id}</td>
-                        <td className="p-2 text-slate-800">{p.employee_name || '—'}</td>
-                        <td className="p-2 text-slate-400">{p.department || 'Operations'}</td>
-                        <td className="p-2 font-mono text-slate-400">{p.contact_number || '—'}</td>
-                        <td className="p-2 text-slate-700">{p.pickup_point}</td>
-                        <td className="p-2 text-slate-700">{p.drop_point}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="flex justify-end pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setActiveManifest(null)}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      </main>
     </div>
   );
 }
