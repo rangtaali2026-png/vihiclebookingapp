@@ -45,9 +45,7 @@ export default function ComplianceAuditPage() {
     setLoading(true);
     try {
       const siteQuery = session.siteId ? `&site_id=${session.siteId}` : '';
-      const res = await fetchApi<{ bookings: AuditRow[] }>(
-        `/api/fleet/bookings?start_date=${startDate}&end_date=${endDate}${siteQuery}`
-      );
+      const res = await fetchApi<{ bookings: AuditRow[] }>(`/api/dispatch${siteQuery ? '?' + siteQuery.slice(1) : ''}`);
       if (res.bookings) {
         setRecords(res.bookings);
       }
@@ -122,7 +120,7 @@ export default function ComplianceAuditPage() {
             <button
               type="button"
               onClick={handleDownloadCsv}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-950/40 transition active:scale-98"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white shadow-lg shadow-emerald-950/40 transition active:scale-[0.98]"
             >
               <Download className="w-4 h-4" />
               <span>Export Audit CSV</span>

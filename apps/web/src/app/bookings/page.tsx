@@ -199,11 +199,11 @@ export default function BookingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Navigation & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <div className="flex items-center gap-2">
               <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-800">
@@ -212,8 +212,8 @@ export default function BookingsPage() {
               <span className="text-slate-300">/</span>
               <span className="text-sm font-semibold text-slate-800">Booking Engine</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">Vehicle Booking Engine</h1>
-            <p className="text-sm text-slate-600">Reserve dedicated cars or book shared shuttle seats with atomic concurrency safety</p>
+            <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Vehicle Booking Engine</h1>
+            <p className="text-sm text-slate-400">Reserve dedicated cars or book shared shuttle seats with atomic concurrency safety</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -232,17 +232,17 @@ export default function BookingsPage() {
         </div>
 
         {/* Booking Creation Form */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
+        <div className="bg-white rounded-xl border border-slate-800 p-6 shadow-sm space-y-6">
           <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">New Reservation Request</h2>
+            <h2 className="text-base font-semibold text-white">New Reservation Request</h2>
             
             {/* Private vs Shared Mode Selector */}
-            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+            <div className="inline-flex rounded-lg border border-slate-800 bg-slate-100 p-1">
               <button
                 type="button"
                 onClick={() => setBookingType('PRIVATE')}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  bookingType === 'PRIVATE' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                  bookingType === 'PRIVATE' ? 'bg-white text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Private (Exclusive Vehicle)
@@ -251,7 +251,7 @@ export default function BookingsPage() {
                 type="button"
                 onClick={() => setBookingType('SHARED')}
                 className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                  bookingType === 'SHARED' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                  bookingType === 'SHARED' ? 'bg-white text-white shadow-sm' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Shared (Seat Allocation)
@@ -262,7 +262,7 @@ export default function BookingsPage() {
           <form onSubmit={handleReserve} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Target Vehicle Category
                 </label>
                 <select
@@ -278,7 +278,7 @@ export default function BookingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Assigned / Preferred Vehicle
                 </label>
                 <select
@@ -296,7 +296,7 @@ export default function BookingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Purpose of Transit
                 </label>
                 <input
@@ -309,7 +309,7 @@ export default function BookingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Scheduled Departure
                 </label>
                 <input
@@ -322,7 +322,7 @@ export default function BookingsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                   Scheduled Arrival / End
                 </label>
                 <input
@@ -336,7 +336,7 @@ export default function BookingsPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                     Origin
                   </label>
                   <input
@@ -348,7 +348,7 @@ export default function BookingsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
                     Destination
                   </label>
                   <input
@@ -367,7 +367,7 @@ export default function BookingsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">
+                    <h3 className="text-sm font-semibold text-white">
                       Passenger Manifest ({passengers.length} / {maxCapacity} seats)
                     </h3>
                     {isOverCapacity && (
@@ -390,7 +390,7 @@ export default function BookingsPage() {
 
               <div className="space-y-3">
                 {passengers.map((p, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                  <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-800 text-xs">
                     <div>
                       <input
                         type="text"
@@ -464,8 +464,8 @@ export default function BookingsPage() {
         </div>
 
         {/* Existing Bookings Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="bg-white rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-50">
             <h3 className="text-sm font-semibold text-slate-800">
               Recent Plant Bookings ({bookings.length})
             </h3>
@@ -485,7 +485,7 @@ export default function BookingsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr className="border-b border-slate-800 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500">
                     <th className="py-3 px-4">Ref #</th>
                     <th className="py-3 px-4">Mode</th>
                     <th className="py-3 px-4">Route</th>
@@ -498,7 +498,7 @@ export default function BookingsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {bookings.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/75 transition">
-                      <td className="py-3 px-4 font-mono font-medium text-slate-900">{b.booking_reference}</td>
+                      <td className="py-3 px-4 font-mono font-medium text-white">{b.booking_reference}</td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
                           {b.booking_type}
@@ -507,7 +507,7 @@ export default function BookingsPage() {
                       <td className="py-3 px-4 text-slate-700">
                         {b.origin_location} → {b.destination_location}
                       </td>
-                      <td className="py-3 px-4 text-slate-600 font-mono text-xs">
+                      <td className="py-3 px-4 text-slate-400 font-mono text-xs">
                         {new Date(b.scheduled_start_time).toLocaleString()}
                       </td>
                       <td className="py-3 px-4">
@@ -555,7 +555,7 @@ export default function BookingsPage() {
                         <button
                           type="button"
                           onClick={() => handle1ClickRebook(b.id)}
-                          className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs"
+                          className="rounded border border-slate-800 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-xs"
                           title="1-Click Re-book tomorrow"
                         >
                           ⚡ Re-book
@@ -577,7 +577,7 @@ export default function BookingsPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">
+                <h3 className="text-base font-semibold text-white">
                   Boarding Manifest: {activeManifest.reference}
                 </h3>
                 <p className="text-xs text-slate-500">
@@ -587,7 +587,7 @@ export default function BookingsPage() {
               <button
                 type="button"
                 onClick={() => setActiveManifest(null)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-400 text-lg font-bold"
               >
                 ✕
               </button>
@@ -599,7 +599,7 @@ export default function BookingsPage() {
               <div className="overflow-x-auto max-h-80">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase">
+                    <tr className="bg-slate-50 border-b border-slate-800 text-slate-500 uppercase">
                       <th className="p-2">Emp ID</th>
                       <th className="p-2">Name</th>
                       <th className="p-2">Department</th>
@@ -611,10 +611,10 @@ export default function BookingsPage() {
                   <tbody className="divide-y divide-slate-100">
                     {activeManifest.passengers.map((p, i) => (
                       <tr key={i} className="hover:bg-slate-50">
-                        <td className="p-2 font-mono font-medium text-slate-900">{p.employee_id}</td>
+                        <td className="p-2 font-mono font-medium text-white">{p.employee_id}</td>
                         <td className="p-2 text-slate-800">{p.employee_name || '—'}</td>
-                        <td className="p-2 text-slate-600">{p.department || 'Operations'}</td>
-                        <td className="p-2 font-mono text-slate-600">{p.contact_number || '—'}</td>
+                        <td className="p-2 text-slate-400">{p.department || 'Operations'}</td>
+                        <td className="p-2 font-mono text-slate-400">{p.contact_number || '—'}</td>
                         <td className="p-2 text-slate-700">{p.pickup_point}</td>
                         <td className="p-2 text-slate-700">{p.drop_point}</td>
                       </tr>

@@ -202,7 +202,7 @@ export default {
         // Mark driver and vehicle as ON_TRIP if dispatched
         if (status === 'DISPATCHED') {
           await supabase.from('drivers').update({ duty_status: 'ON_TRIP' }).eq('id', driver_id);
-          await supabase.from('vehicles').update({ status: 'ON_TRIP' }).eq('id', vehicle_id);
+          await supabase.from('vehicles')/* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() }).eq('id', vehicle_id);
         }
 
         // Fetch trip details for real-time passenger notification
@@ -266,7 +266,7 @@ export default {
 
         // Free vehicle and driver back to AVAILABLE
         if (booking.allotted_vehicle_id) {
-          await supabase.from('vehicles').update({ status: 'AVAILABLE' }).eq('id', booking.allotted_vehicle_id);
+          await supabase.from('vehicles')/* vehicle status remains ACTIVE */.update({ updated_at: new Date().toISOString() }).eq('id', booking.allotted_vehicle_id);
         }
         if (booking.allotted_driver_id) {
           await supabase.from('drivers').update({ duty_status: 'AVAILABLE' }).eq('id', booking.allotted_driver_id);
@@ -427,7 +427,7 @@ export default {
           const totalVehicles = safeVehicles.length;
           const totalDrivers = safeDrivers.length;
           const activeVehicles = safeVehicles.filter((v: any) => v.status === 'ON_TRIP').length;
-          const availableVehicles = safeVehicles.filter((v: any) => v.status === 'AVAILABLE').length;
+          const availableVehicles = safeVehicles.filter((v: any) => (v.status === 'ACTIVE' || v.status === 'available' || v.status === 'READY')).length;
 
           const fleetUtilizationRate = totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0;
 
@@ -511,7 +511,7 @@ export default {
         // Ensure vehicle status is updated to ON_TRIP
         await supabase
           .from('vehicles')
-          .update({ status: 'ON_TRIP' })
+          /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
           .eq('id', body.vehicle_id);
 
         return jsonResponse({ success: true, timestamp: new Date().toISOString() }, 200, corsHeaders);
@@ -675,7 +675,7 @@ export default {
           .from('vehicles')
           .select('*')
           .eq('site_id', body.site_id)
-          .eq('status', 'AVAILABLE')
+          .eq('status', 'ACTIVE')
           .in('category', ['BUS', 'VAN']);
 
         let busPool = [...(availableBuses || [])];
@@ -725,7 +725,7 @@ export default {
           if (allottedVehicle) {
             await supabase
               .from('vehicles')
-              .update({ status: 'ON_TRIP' })
+              /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
               .eq('id', allottedVehicle.id);
           }
 
@@ -980,7 +980,7 @@ export default {
           const totalVehicles = safeVehicles.length;
           const totalDrivers = safeDrivers.length;
           const activeVehicles = safeVehicles.filter((v: any) => v.status === 'ON_TRIP').length;
-          const availableVehicles = safeVehicles.filter((v: any) => v.status === 'AVAILABLE').length;
+          const availableVehicles = safeVehicles.filter((v: any) => (v.status === 'ACTIVE' || v.status === 'available' || v.status === 'READY')).length;
 
           const fleetUtilizationRate = totalVehicles > 0 ? Math.round((activeVehicles / totalVehicles) * 100) : 0;
 
@@ -1064,7 +1064,7 @@ export default {
         // Ensure vehicle status is updated to ON_TRIP
         await supabase
           .from('vehicles')
-          .update({ status: 'ON_TRIP' })
+          /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
           .eq('id', body.vehicle_id);
 
         return jsonResponse({ success: true, timestamp: new Date().toISOString() }, 200, corsHeaders);
@@ -1228,7 +1228,7 @@ export default {
           .from('vehicles')
           .select('*')
           .eq('site_id', body.site_id)
-          .eq('status', 'AVAILABLE')
+          .eq('status', 'ACTIVE')
           .in('category', ['BUS', 'VAN']);
 
         let busPool = [...(availableBuses || [])];
@@ -1278,7 +1278,7 @@ export default {
           if (allottedVehicle) {
             await supabase
               .from('vehicles')
-              .update({ status: 'ON_TRIP' })
+              /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
               .eq('id', allottedVehicle.id);
           }
 
@@ -1673,7 +1673,7 @@ export default {
           .from('vehicles')
           .select('*')
           .eq('site_id', site.id)
-          .eq('status', 'AVAILABLE');
+          .eq('status', 'ACTIVE');
 
         let busPool = [...(availableBuses || [])];
 
@@ -1723,7 +1723,7 @@ export default {
           if (allottedVehicle) {
             await supabase
               .from('vehicles')
-              .update({ status: 'ON_TRIP' })
+              /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
               .eq('id', allottedVehicle.id);
           }
 

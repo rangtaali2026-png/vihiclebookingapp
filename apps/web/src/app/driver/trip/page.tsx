@@ -172,7 +172,7 @@ function DriverTripConsoleContent() {
             type="button"
             disabled={actionLoading}
             onClick={() => handleUpdateStatus('DISPATCHED')}
-            className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold shadow-lg shadow-blue-950/50 active:scale-98 transition"
+            className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold shadow-lg shadow-blue-950/50 active:scale-[0.98] transition"
           >
             {actionLoading ? 'Starting Transit...' : '▶ Start Trip & Begin GPS Stream'}
           </button>
@@ -194,7 +194,7 @@ function DriverTripConsoleContent() {
               type="button"
               disabled={actionLoading}
               onClick={() => handleUpdateStatus('COMPLETED')}
-              className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold shadow-lg shadow-emerald-950/50 active:scale-98 transition"
+              className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-sm font-bold shadow-lg shadow-emerald-950/50 active:scale-[0.98] transition"
             >
               {actionLoading ? 'Finishing...' : '✓ Complete Trip at Destination'}
             </button>

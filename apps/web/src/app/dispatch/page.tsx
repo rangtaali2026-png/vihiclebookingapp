@@ -141,16 +141,16 @@ export default function DispatchPage() {
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Navigation & Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <div className="flex items-center gap-2">
-              <Link href="/" className="text-sm font-medium text-slate-500 hover:text-slate-800">
+              <Link href="/" className="text-sm font-medium text-slate-400 hover:text-slate-800">
                 ← Home
               </Link>
               <span className="text-slate-300">/</span>
               <span className="text-sm font-semibold text-slate-800">Dispatch Operations</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 mt-1">Admin Dispatch & Operations Console</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Admin Dispatch & Operations Console</h1>
             <p className="text-sm text-slate-600">Allocate drivers, assign fleet assets, and verify passenger boarding manifests</p>
           </div>
           <div className="flex gap-2">
@@ -171,26 +171,26 @@ export default function DispatchPage() {
 
         {/* Quick Driver & Fleet Operational Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Allotment</p>
+          <div className="bg-white rounded-xl border border-slate-800 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending Allotment</p>
             <p className="text-2xl font-bold text-amber-600 mt-1">
               {bookings.filter((b) => b.status === 'PENDING').length}
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Dispatched</p>
+          <div className="bg-white rounded-xl border border-slate-800 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Dispatched</p>
             <p className="text-2xl font-bold text-purple-600 mt-1">
               {bookings.filter((b) => b.status === 'DISPATCHED').length}
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Drivers</p>
+          <div className="bg-white rounded-xl border border-slate-800 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Available Drivers</p>
             <p className="text-2xl font-bold text-emerald-600 mt-1">
               {drivers.filter((d) => d.duty_status === 'AVAILABLE').length} / {drivers.length}
             </p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Available Vehicles</p>
+          <div className="bg-white rounded-xl border border-slate-800 p-4 shadow-xs">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Available Vehicles</p>
             <p className="text-2xl font-bold text-blue-600 mt-1">
               {vehicles.filter((v) => v.status === 'AVAILABLE').length} / {vehicles.length}
             </p>
@@ -198,8 +198,8 @@ export default function DispatchPage() {
         </div>
 
         {/* Dispatch Operations Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+        <div className="bg-white rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-50">
             <h3 className="text-sm font-semibold text-slate-800">
               Trip Dispatch & Asset Allocation Queue ({bookings.length})
             </h3>
@@ -212,14 +212,14 @@ export default function DispatchPage() {
           </div>
 
           {loading ? (
-            <div className="p-8 text-center text-sm text-slate-500">Loading operational trips...</div>
+            <div className="p-8 text-center text-sm text-slate-400">Loading operational trips...</div>
           ) : bookings.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-500">No operational trips found.</div>
+            <div className="p-8 text-center text-sm text-slate-400">No operational trips found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500">
+                  <tr className="border-b border-slate-800 bg-slate-50/50 text-xs uppercase tracking-wider text-slate-400">
                     <th className="py-3 px-4">Ref #</th>
                     <th className="py-3 px-4">Route & Time</th>
                     <th className="py-3 px-4">Allocated Vehicle</th>
@@ -229,21 +229,21 @@ export default function DispatchPage() {
                     <th className="py-3 px-4 text-right">Dispatch Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-800/80">
                   {bookings.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/75 transition">
                       <td className="py-3 px-4">
-                        <span className="font-mono font-medium text-slate-900">{b.booking_reference}</span>
-                        <div className="text-xs text-slate-500">{b.booking_type} • {b.target_category}</div>
+                        <span className="font-mono font-medium text-white">{b.booking_reference}</span>
+                        <div className="text-xs text-slate-400">{b.booking_type} • {b.target_category}</div>
                       </td>
                       <td className="py-3 px-4 text-xs">
                         <div className="font-medium text-slate-800">{b.origin_location} → {b.destination_location}</div>
-                        <div className="text-slate-500 mt-0.5">{new Date(b.scheduled_start_time).toLocaleString()}</div>
+                        <div className="text-slate-400 mt-0.5">{new Date(b.scheduled_start_time).toLocaleString()}</div>
                       </td>
                       <td className="py-3 px-4 text-xs">
                         {b.vehicles ? (
-                          <div className="font-medium text-slate-900">
-                            {b.vehicles.registration_number} <span className="text-slate-500">({b.vehicles.model})</span>
+                          <div className="font-medium text-white">
+                            {b.vehicles.registration_number} <span className="text-slate-400">({b.vehicles.model})</span>
                           </div>
                         ) : (
                           <span className="text-slate-400 italic">Not Assigned</span>
@@ -252,8 +252,8 @@ export default function DispatchPage() {
                       <td className="py-3 px-4 text-xs">
                         {b.drivers ? (
                           <div>
-                            <div className="font-medium text-slate-900">{b.drivers.name}</div>
-                            <div className="text-slate-500 font-mono">{b.drivers.mobile_number}</div>
+                            <div className="font-medium text-white">{b.drivers.name}</div>
+                            <div className="text-slate-400 font-mono">{b.drivers.mobile_number}</div>
                           </div>
                         ) : (
                           <span className="text-slate-400 italic">Not Assigned</span>
@@ -340,10 +340,10 @@ export default function DispatchPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">
+                <h3 className="text-base font-semibold text-white">
                   Assign Fleet Assets: {assigningBooking.booking_reference}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Required: {assigningBooking.target_category} • {assigningBooking.passenger_count} Passenger(s)
                 </p>
               </div>
@@ -422,10 +422,10 @@ export default function DispatchPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">
+                <h3 className="text-base font-semibold text-white">
                   QR Boarding Verification: {verifyingBooking.booking_reference}
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Scan badge or enter Employee ID to verify boarding
                 </p>
               </div>
@@ -467,19 +467,19 @@ export default function DispatchPage() {
             )}
 
             {/* Live Boarding Manifest */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
+            <div className="border border-slate-800 rounded-lg overflow-hidden max-h-60 overflow-y-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <thead className="bg-slate-900/80 border-b border-slate-800 text-slate-400">
                   <tr>
                     <th className="p-2">Emp ID</th>
                     <th className="p-2">Name</th>
                     <th className="p-2">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-800/80">
                   {verifyingBooking.booking_passengers?.map((p, idx) => (
                     <tr key={idx} className="hover:bg-slate-50">
-                      <td className="p-2 font-mono font-medium text-slate-900">{p.employee_id}</td>
+                      <td className="p-2 font-mono font-medium text-white">{p.employee_id}</td>
                       <td className="p-2 text-slate-700">{p.employee_name || '—'}</td>
                       <td className="p-2">
                         {p.is_boarded ? (
