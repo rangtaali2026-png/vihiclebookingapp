@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.planttransit.fleetapp',
-  appName: 'Plant Transit',
+  appName: 'SmartDrive',
   server: {
     url: 'https://vehiclebookingapp.pages.dev',
     cleartext: false,

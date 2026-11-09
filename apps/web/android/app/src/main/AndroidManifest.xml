@@ -1,25 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    
     <!-- GPS & Location Telemetry Permissions -->
-    
-    
-    
 
     <!-- Camera Scanning for QR Boarding -->
-    
-    
 
     <!-- Network and Offline Sync -->
-    
-    
-    
 
     <!-- Standard GPS & High Accuracy Location -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    
+
     <!-- Background GPS for continuous telemetry when screen is locked or navigating -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
@@ -50,7 +40,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
@@ -58,12 +47,10 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
         <provider
@@ -71,20 +58,16 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-    
+
         <!-- Continuous Telemetry Background Service Definition -->
         <service
             android:name="com.capacitorjs.plugins.geolocation.GeolocationPlugin"
             android:foregroundServiceType="location"
-            android:exported="false" />
-
+            android:exported="false"
+        />
     </application>
 
     <!-- Permissions -->
-
-    
 </manifest>
