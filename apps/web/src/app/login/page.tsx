@@ -13,7 +13,9 @@ import {
   ArrowRight,
   Lock,
   Mail,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 interface DemoAccount {
@@ -137,7 +139,32 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-smart-bg flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-smart-bg flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative selection:bg-smart-blue selection:text-white">
+      
+      {/* Top Right Corner - Android APK Download Button */}
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
+        <a
+          href="/downloads/SmartDrive.apk"
+          download="SmartDrive-Enterprise.apk"
+          className="group inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-smart-border text-smart-navy hover:text-smart-blue shadow-smart-sm hover:shadow-smart-lg hover:border-smart-blue/50 transition-all duration-200 active:scale-95"
+          title="Download Android Driver & Staff App"
+        >
+          <div className="p-1.5 rounded-xl bg-blue-50 text-smart-blue group-hover:bg-smart-blue group-hover:text-white transition-colors">
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div className="text-left hidden xs:block sm:block">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black tracking-tight leading-none">Download APK</span>
+              <span className="text-[9px] font-bold uppercase tracking-wider text-smart-cyan bg-cyan-50 border border-cyan-200/60 px-1.5 py-0.2 rounded-full">
+                v2.1
+              </span>
+            </div>
+            <span className="text-[10px] text-smart-muted font-medium block mt-0.5">Android Native App</span>
+          </div>
+          <Download className="w-3.5 h-3.5 text-smart-muted group-hover:text-smart-blue group-hover:translate-y-0.5 transition-transform ml-0.5" />
+        </a>
+      </div>
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-2">
         <div className="inline-flex w-12 h-12 rounded-2xl smart-gradient-blue text-white shadow-smart-lg items-center justify-center">
           <Car className="w-6 h-6" />
