@@ -160,7 +160,7 @@ export default function DispatchPage() {
               <span className="text-slate-300">/</span>
               <span className="text-sm font-semibold text-slate-800">Dispatch Operations</span>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Admin Dispatch & Operations Console</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-smart-navy tracking-tight mt-1">Admin Dispatch & Operations Console</h1>
             <p className="text-sm text-slate-600">Allocate drivers, assign fleet assets, and verify passenger boarding manifests</p>
           </div>
           <div className="flex gap-2">
@@ -440,11 +440,11 @@ export default function DispatchPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-semibold text-white">
+                <h3 className="text-base font-black text-smart-navy tracking-tight">
                   QR Boarding Verification: {verifyingBooking.booking_reference}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Scan badge or enter Employee ID to verify boarding
+                  <p className="text-xs text-smart-muted font-medium mt-0.5">Scan badge or enter Employee ID to verify boarding</p>
                 </p>
               </div>
               <button
