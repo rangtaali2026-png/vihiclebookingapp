@@ -891,50 +891,45 @@ export default {
         const employeeName = body.employee_name || 'Staff Employee';
         const employeeEmail = body.employee_email || 'staff@planttransit.com';
         const department = body.department || 'Plant Operations';
+        const pickupDate = body.pickup_time ? new Date(body.pickup_time) : new Date();
+        const endDate = new Date(pickupDate.getTime() + 2 * 60 * 60 * 1000); // Default 2 hr buffer
 
-        // Prepare manifest ensuring lead rider info is always present
-        let manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
+        const manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
           ? body.passenger_manifest
           : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
 
-        // Core columns guaranteed by the initial schema
-        const corePayload: any = {
+        // Exact match with your database table columns
+        const bookingRecord: any = {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
-          booking_type: body.booking_type || 'EXCLUSIVE',
-          target_category: body.target_category || 'SEDAN',
+          booking_type: body.booking_type === 'SHARED_COMMUTE' ? 'SHARED' : 'PRIVATE',
+          target_category: body.target_category || 'SEDAN_4',
           origin_location: body.origin_location,
           destination_location: body.destination_location,
-          pickup_time: body.pickup_time || new Date().toISOString(),
+          scheduled_start_time: pickupDate.toISOString(),
+          scheduled_end_time: body.scheduled_end_time || endDate.toISOString(),
           passenger_count: body.passenger_count || manifest.length || 1,
-          passenger_manifest: manifest,
           status: body.status || 'PENDING',
-          purpose: body.purpose || 'Official Plant Duty',
+          purpose: body.purpose || 'Client Plant Visit',
+          employee_name: employeeName,
+          employee_email: employeeEmail,
+          department: department,
           allotted_vehicle_id: body.allotted_vehicle_id || null,
           allotted_driver_id: body.allotted_driver_id || null
         };
 
-        // Try inserting with optional columns first
-        const fullPayload = {
-          ...corePayload,
-          employee_name: employeeName,
-          employee_email: employeeEmail,
-          department: department
-        };
-
-        let createdBooking = null;
-        let { data, error: insertErr } = await supabase
+        // Try inserting with passenger_manifest first
+        let { data: createdBooking, error: insertErr } = await supabase
           .from('bookings')
-          .insert(fullPayload)
+          .insert({ ...bookingRecord, passenger_manifest: manifest })
           .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
           .single();
 
-        // Fallback: If PostgREST fails due to schema columns missing, retry with corePayload only
-        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('schema cache'))) {
-          console.warn('Falling back to core booking columns:', insertErr.message);
+        // Fallback: If passenger_manifest column is not yet migrated, insert without it
+        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('passenger_manifest'))) {
           const retry = await supabase
             .from('bookings')
-            .insert(corePayload)
+            .insert(bookingRecord)
             .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
             .single();
 
@@ -942,10 +937,14 @@ export default {
           createdBooking = retry.data;
         } else if (insertErr) {
           throw insertErr;
-        } else {
-          createdBooking = data;
         }
 
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
+      }
         return jsonResponse({
           success: true,
           message: 'Booking reservation created successfully',
@@ -1551,50 +1550,45 @@ export default {
         const employeeName = body.employee_name || 'Staff Employee';
         const employeeEmail = body.employee_email || 'staff@planttransit.com';
         const department = body.department || 'Plant Operations';
+        const pickupDate = body.pickup_time ? new Date(body.pickup_time) : new Date();
+        const endDate = new Date(pickupDate.getTime() + 2 * 60 * 60 * 1000); // Default 2 hr buffer
 
-        // Prepare manifest ensuring lead rider info is always present
-        let manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
+        const manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
           ? body.passenger_manifest
           : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
 
-        // Core columns guaranteed by the initial schema
-        const corePayload: any = {
+        // Exact match with your database table columns
+        const bookingRecord: any = {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
-          booking_type: body.booking_type || 'EXCLUSIVE',
-          target_category: body.target_category || 'SEDAN',
+          booking_type: body.booking_type === 'SHARED_COMMUTE' ? 'SHARED' : 'PRIVATE',
+          target_category: body.target_category || 'SEDAN_4',
           origin_location: body.origin_location,
           destination_location: body.destination_location,
-          pickup_time: body.pickup_time || new Date().toISOString(),
+          scheduled_start_time: pickupDate.toISOString(),
+          scheduled_end_time: body.scheduled_end_time || endDate.toISOString(),
           passenger_count: body.passenger_count || manifest.length || 1,
-          passenger_manifest: manifest,
           status: body.status || 'PENDING',
-          purpose: body.purpose || 'Official Plant Duty',
+          purpose: body.purpose || 'Client Plant Visit',
+          employee_name: employeeName,
+          employee_email: employeeEmail,
+          department: department,
           allotted_vehicle_id: body.allotted_vehicle_id || null,
           allotted_driver_id: body.allotted_driver_id || null
         };
 
-        // Try inserting with optional columns first
-        const fullPayload = {
-          ...corePayload,
-          employee_name: employeeName,
-          employee_email: employeeEmail,
-          department: department
-        };
-
-        let createdBooking = null;
-        let { data, error: insertErr } = await supabase
+        // Try inserting with passenger_manifest first
+        let { data: createdBooking, error: insertErr } = await supabase
           .from('bookings')
-          .insert(fullPayload)
+          .insert({ ...bookingRecord, passenger_manifest: manifest })
           .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
           .single();
 
-        // Fallback: If PostgREST fails due to schema columns missing, retry with corePayload only
-        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('schema cache'))) {
-          console.warn('Falling back to core booking columns:', insertErr.message);
+        // Fallback: If passenger_manifest column is not yet migrated, insert without it
+        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('passenger_manifest'))) {
           const retry = await supabase
             .from('bookings')
-            .insert(corePayload)
+            .insert(bookingRecord)
             .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
             .single();
 
@@ -1602,10 +1596,14 @@ export default {
           createdBooking = retry.data;
         } else if (insertErr) {
           throw insertErr;
-        } else {
-          createdBooking = data;
         }
 
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
+      }
         return jsonResponse({
           success: true,
           message: 'Booking reservation created successfully',
