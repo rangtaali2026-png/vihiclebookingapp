@@ -834,6 +834,76 @@ export default {
         });
       }
 
+      
+      // GET /api/dispatch (and /api/fleet/bookings alias)
+      if (request.method === 'GET' && (path === '/api/dispatch' || path === '/api/fleet/bookings')) {
+        const siteId = url.searchParams.get('site_id');
+        const startDate = url.searchParams.get('start_date');
+        const endDate = url.searchParams.get('end_date');
+
+        let query = supabase
+          .from('bookings')
+          .select('*, vehicles(registration_number, model), drivers(name, mobile_number, license_number)')
+          .order('created_at', { ascending: false });
+
+        if (siteId) {
+          query = query.eq('site_id', siteId);
+        }
+        if (startDate) {
+          query = query.gte('pickup_time', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+          query = query.lte('pickup_time', `${endDate}T23:59:59`);
+        }
+
+        const { data: bookings, error: bErr } = await query;
+        if (bErr) throw bErr;
+
+        return jsonResponse({ success: true, bookings: bookings || [] }, 200, corsHeaders);
+      }
+
+      // POST /api/dispatch/create (and /api/fleet/bookings alias)
+      if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
+        const body = await request.json() as any;
+
+        if (!body.site_id || !body.origin_location || !body.destination_location) {
+          return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+        }
+
+        const bookingPayload = {
+          site_id: body.site_id,
+          booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
+          employee_name: body.employee_name || 'Staff Employee',
+          employee_email: body.employee_email || 'staff@planttransit.com',
+          department: body.department || 'Plant Operations',
+          booking_type: body.booking_type || 'EXCLUSIVE',
+          target_category: body.target_category || 'SEDAN',
+          origin_location: body.origin_location,
+          destination_location: body.destination_location,
+          pickup_time: body.pickup_time || new Date().toISOString(),
+          passenger_count: body.passenger_count || 1,
+          passenger_manifest: body.passenger_manifest || [],
+          status: body.status || 'PENDING',
+          purpose: body.purpose || 'Official Plant Duty',
+          allotted_vehicle_id: body.allotted_vehicle_id || null,
+          allotted_driver_id: body.allotted_driver_id || null
+        };
+
+        const { data: createdBooking, error: insertErr } = await supabase
+          .from('bookings')
+          .insert(bookingPayload)
+          .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+          .single();
+
+        if (insertErr) throw insertErr;
+
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
+      }
+
       // GET /api/fleet/vehicles/:id/active-trip
       if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
         const vehicleId = path.split('/')[4];
@@ -1385,6 +1455,76 @@ export default {
             'Content-Disposition': `attachment; filename="${filename}"`,
           },
         });
+      }
+
+      
+      // GET /api/dispatch (and /api/fleet/bookings alias)
+      if (request.method === 'GET' && (path === '/api/dispatch' || path === '/api/fleet/bookings')) {
+        const siteId = url.searchParams.get('site_id');
+        const startDate = url.searchParams.get('start_date');
+        const endDate = url.searchParams.get('end_date');
+
+        let query = supabase
+          .from('bookings')
+          .select('*, vehicles(registration_number, model), drivers(name, mobile_number, license_number)')
+          .order('created_at', { ascending: false });
+
+        if (siteId) {
+          query = query.eq('site_id', siteId);
+        }
+        if (startDate) {
+          query = query.gte('pickup_time', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+          query = query.lte('pickup_time', `${endDate}T23:59:59`);
+        }
+
+        const { data: bookings, error: bErr } = await query;
+        if (bErr) throw bErr;
+
+        return jsonResponse({ success: true, bookings: bookings || [] }, 200, corsHeaders);
+      }
+
+      // POST /api/dispatch/create (and /api/fleet/bookings alias)
+      if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
+        const body = await request.json() as any;
+
+        if (!body.site_id || !body.origin_location || !body.destination_location) {
+          return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+        }
+
+        const bookingPayload = {
+          site_id: body.site_id,
+          booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
+          employee_name: body.employee_name || 'Staff Employee',
+          employee_email: body.employee_email || 'staff@planttransit.com',
+          department: body.department || 'Plant Operations',
+          booking_type: body.booking_type || 'EXCLUSIVE',
+          target_category: body.target_category || 'SEDAN',
+          origin_location: body.origin_location,
+          destination_location: body.destination_location,
+          pickup_time: body.pickup_time || new Date().toISOString(),
+          passenger_count: body.passenger_count || 1,
+          passenger_manifest: body.passenger_manifest || [],
+          status: body.status || 'PENDING',
+          purpose: body.purpose || 'Official Plant Duty',
+          allotted_vehicle_id: body.allotted_vehicle_id || null,
+          allotted_driver_id: body.allotted_driver_id || null
+        };
+
+        const { data: createdBooking, error: insertErr } = await supabase
+          .from('bookings')
+          .insert(bookingPayload)
+          .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+          .single();
+
+        if (insertErr) throw insertErr;
+
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
       }
 
       // GET /api/fleet/vehicles?site_id=...&category=...
