@@ -1047,10 +1047,10 @@ export default {
           }
 
           let query = supabase.from('bookings').select('*');
-          if (booking_id) {
-            query = query.eq('id', booking_id);
-          } else {
-            query = query.eq('booking_reference', booking_reference);
+          if (body.booking_id) {
+            query = query.eq('id', body.booking_id);
+          } else if (body.booking_reference) {
+            query = query.eq('booking_reference', body.booking_reference);
           }
 
           const { data: booking, error: fetchErr } = await query.single();
