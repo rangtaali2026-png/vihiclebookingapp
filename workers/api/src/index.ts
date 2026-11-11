@@ -885,8 +885,8 @@ export default {
         try {
           const body = await request.json() as any;
 
-          if (!body.site_id || !body.origin_location || !body.destination_location) {
-            return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+          if (!body.site_id || !body.requester_id || !body.origin_location || !body.destination_location) {
+            return jsonResponse({ error: 'site_id, requester_id, origin_location, and destination_location are required' }, 400, corsHeaders);
           }
 
           const employeeName = body.employee_name || 'Staff Employee';
@@ -912,6 +912,7 @@ export default {
 
           const bookingRecord: any = {
             site_id: body.site_id,
+            requester_id: body.requester_id,
             booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
             booking_type: bType,
             target_category: tCat,
@@ -1548,8 +1549,8 @@ export default {
       if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
         const body = await request.json() as any;
 
-        if (!body.site_id || !body.origin_location || !body.destination_location) {
-          return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+        if (!body.site_id || !body.requester_id || !body.origin_location || !body.destination_location) {
+          return jsonResponse({ error: 'site_id, requester_id, origin_location, and destination_location are required' }, 400, corsHeaders);
         }
 
         const employeeName = body.employee_name || 'Staff Employee';
@@ -1578,6 +1579,7 @@ export default {
 
         const bookingRecord: any = {
           site_id: body.site_id,
+          requester_id: body.requester_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
           booking_type: bType,
           target_category: tCat,
