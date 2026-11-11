@@ -1034,7 +1034,96 @@ export default {
         return jsonResponse({ success: true, bookings: bookings || [] }, 200, corsHeaders);
       }
 
-            // POST /api/dispatch/create (and /api/fleet/bookings alias)
+            // ==========================================
+      // DISPATCH: VERIFY PASSENGER BOARDING
+      // ==========================================
+      if (request.method === 'POST' && path === '/api/dispatch/verify-boarding') {
+        try {
+          const body = await request.json() as any;
+          const { booking_id, employee_id, booking_reference } = body;
+
+          if ((!booking_id && !booking_reference) || !employee_id) {
+            return jsonResponse({ error: 'booking_id and employee_id are required' }, 400, corsHeaders);
+          }
+
+          let query = supabase.from('bookings').select('*');
+          if (booking_id) {
+            query = query.eq('id', booking_id);
+          } else {
+            query = query.eq('booking_reference', booking_reference);
+          }
+
+          const { data: booking, error: fetchErr } = await query.single();
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking transit record not found' }, 404, corsHeaders);
+          }
+
+          let manifest: any[] = [];
+          if (Array.isArray(booking.passenger_manifest)) {
+            manifest = booking.passenger_manifest;
+          } else if (typeof booking.passenger_manifest === 'string') {
+            try {
+              manifest = JSON.parse(booking.passenger_manifest);
+            } catch (e) {
+              manifest = [];
+            }
+          }
+
+          const searchEmpId = String(employee_id).trim().toUpperCase();
+          let matchedIndex = manifest.findIndex((p: any) => 
+            String(p.employee_id || p.emp_id || '').trim().toUpperCase() === searchEmpId
+          );
+
+          let verifiedPassenger: any = null;
+
+          if (matchedIndex !== -1) {
+            manifest[matchedIndex].boarded = true;
+            manifest[matchedIndex].boarded_at = new Date().toISOString();
+            verifiedPassenger = manifest[matchedIndex];
+          } else {
+            const primaryEmpMatch = String(booking.employee_id || '').trim().toUpperCase() === searchEmpId ||
+                                   String(booking.employee_name || '').trim().toUpperCase() === searchEmpId;
+
+            if (primaryEmpMatch || manifest.length === 0) {
+              verifiedPassenger = {
+                employee_id: searchEmpId,
+                name: booking.employee_name || 'Primary Rider',
+                department: booking.department || 'Operations',
+                boarded: true,
+                boarded_at: new Date().toISOString()
+              };
+              manifest.push(verifiedPassenger);
+            } else {
+              return jsonResponse({
+                error: `Passenger record not found for employee ID: ${employee_id}`
+              }, 404, corsHeaders);
+            }
+          }
+
+          const { error: updateErr } = await supabase
+            .from('bookings')
+            .update({
+              passenger_manifest: manifest,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', booking.id);
+
+          if (updateErr) {
+            return jsonResponse({ error: updateErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `Passenger ${verifiedPassenger.name || verifiedPassenger.employee_id} verified and boarded successfully`,
+            passenger: verifiedPassenger,
+            manifest: manifest
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Internal verification error' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/dispatch/create (and /api/fleet/bookings alias)
             if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
           try {
           const body = await request.json() as any;
