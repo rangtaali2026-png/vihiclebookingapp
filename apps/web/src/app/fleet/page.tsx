@@ -19,7 +19,9 @@ import {
   Search,
   RotateCcw,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  Calendar
 } from 'lucide-react';
 
 interface Driver {
@@ -27,6 +29,7 @@ interface Driver {
   name: string;
   mobile_number: string;
   license_number?: string;
+  license_expiry?: string;
   status?: string;
 }
 
@@ -63,13 +66,23 @@ export default function FleetManagementPage() {
   const [newCapacity, setNewCapacity] = useState(4);
   const [driverOption, setDriverOption] = useState<'EXISTING' | 'NEW'>('EXISTING');
   const [selectedDriverId, setSelectedDriverId] = useState('');
+
+  // Quick Driver State (Option B)
   const [quickDriverName, setQuickDriverName] = useState('');
   const [quickDriverMobile, setQuickDriverMobile] = useState('');
+  const [quickDriverLicense, setQuickDriverLicense] = useState('');
+  const [quickDriverExpiry, setQuickDriverExpiry] = useState(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 5);
+    return d.toISOString().slice(0, 10);
+  });
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
   // Edit Driver Form State
   const [editDriverId, setEditDriverId] = useState('');
   const [editDriverMobile, setEditDriverMobile] = useState('');
+  const [editDriverLicense, setEditDriverLicense] = useState('');
+  const [editDriverExpiry, setEditDriverExpiry] = useState('');
   const [submittingEditDriver, setSubmittingEditDriver] = useState(false);
 
   // Load Vehicles & Active Drivers
@@ -104,6 +117,12 @@ export default function FleetManagementPage() {
     setSelectedVehicleForDriver(vehicle);
     setEditDriverId(vehicle.default_driver_id || '');
     setEditDriverMobile(vehicle.default_driver?.mobile_number || '');
+    setEditDriverLicense(vehicle.default_driver?.license_number || '');
+    setEditDriverExpiry(
+      vehicle.default_driver?.license_expiry
+        ? vehicle.default_driver.license_expiry.slice(0, 10)
+        : ''
+    );
     setIsEditDriverOpen(true);
   };
 
@@ -116,12 +135,14 @@ export default function FleetManagementPage() {
     setFeedback(null);
 
     try {
-      const res = await fetchApi<any>('/api/fleet/vehicles/assign-driver', {
+      await fetchApi<any>('/api/fleet/vehicles/assign-driver', {
         method: 'POST',
         body: JSON.stringify({
           vehicle_id: selectedVehicleForDriver.id,
           driver_id: editDriverId || null,
-          driver_mobile: editDriverMobile
+          driver_mobile: editDriverMobile,
+          license_number: editDriverLicense,
+          license_expiry: editDriverExpiry
         })
       });
 
@@ -136,7 +157,9 @@ export default function FleetManagementPage() {
                   ? {
                       id: editDriverId,
                       name: drivers.find((d) => d.id === editDriverId)?.name || v.default_driver?.name || 'Driver',
-                      mobile_number: editDriverMobile || v.default_driver?.mobile_number || ''
+                      mobile_number: editDriverMobile || v.default_driver?.mobile_number || '',
+                      license_number: editDriverLicense || v.default_driver?.license_number,
+                      license_expiry: editDriverExpiry || v.default_driver?.license_expiry
                     }
                   : null
               }
@@ -147,10 +170,11 @@ export default function FleetManagementPage() {
       setFeedback({
         type: 'success',
         message: editDriverId
-          ? `Driver assigned successfully to ${selectedVehicleForDriver.registration_number}.`
+          ? `Driver record and assignment updated for ${selectedVehicleForDriver.registration_number}.`
           : `Driver unassigned from ${selectedVehicleForDriver.registration_number}.`
       });
       setIsEditDriverOpen(false);
+      loadFleetData();
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to update driver assignment' });
     } finally {
@@ -167,7 +191,7 @@ export default function FleetManagementPage() {
     try {
       let finalDriverId = selectedDriverId;
 
-      // If Option B: Quick Add New Driver
+      // Option B: Quick Add New Driver with License & Expiry
       if (driverOption === 'NEW' && quickDriverName.trim() && quickDriverMobile.trim()) {
         const dRes = await fetchApi<any>('/api/fleet/drivers', {
           method: 'POST',
@@ -175,6 +199,8 @@ export default function FleetManagementPage() {
             site_id: session?.siteId || '11111111-1111-1111-1111-111111111111',
             name: quickDriverName.trim(),
             mobile_number: quickDriverMobile.trim(),
+            license_number: quickDriverLicense.trim() || `DL-GJ-${Date.now().toString().slice(-6)}`,
+            license_expiry: quickDriverExpiry || new Date(Date.now() + 5*365*24*60*60*1000).toISOString().slice(0, 10),
             status: 'AVAILABLE'
           })
         });
@@ -198,12 +224,14 @@ export default function FleetManagementPage() {
 
       setFeedback({ type: 'success', message: `Vehicle ${newRegNo.toUpperCase()} created successfully.` });
       setIsAddVehicleOpen(false);
+      
       // Reset form
       setNewRegNo('');
       setNewModel('');
       setSelectedDriverId('');
       setQuickDriverName('');
       setQuickDriverMobile('');
+      setQuickDriverLicense('');
       loadFleetData();
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to create vehicle' });
@@ -238,7 +266,7 @@ export default function FleetManagementPage() {
               Fleet Asset & Permanent Driver Roster
             </h1>
             <p className="text-xs sm:text-sm text-smart-muted mt-0.5">
-              Manage plant transit cars, buses, and assign dedicated contract drivers.
+              Manage plant transit cars, buses, and verified commercial driving licenses.
             </p>
           </div>
 
@@ -279,7 +307,7 @@ export default function FleetManagementPage() {
             <Search className="w-4 h-4 text-smart-muted absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search vehicle reg no, model, or driver..."
+              placeholder="Search reg no, model, or driver name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-50 border border-smart-border rounded-xl pl-9 pr-3 py-2 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
@@ -295,7 +323,7 @@ export default function FleetManagementPage() {
           </button>
         </div>
 
-        {/* B. Fleet Management Table */}
+        {/* Fleet Management Table */}
         <div className="smart-glass-card p-0 overflow-hidden shadow-smart">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -304,6 +332,7 @@ export default function FleetManagementPage() {
                   <th className="py-3.5 px-4 font-bold">Vehicle No</th>
                   <th className="py-3.5 px-4 font-bold">Model & Capacity</th>
                   <th className="py-3.5 px-4 font-bold">Permanent Driver</th>
+                  <th className="py-3.5 px-4 font-bold">Commercial License</th>
                   <th className="py-3.5 px-4 font-bold">Contact</th>
                   <th className="py-3.5 px-4 font-bold">Status</th>
                   <th className="py-3.5 px-4 font-bold text-right">Action</th>
@@ -312,18 +341,17 @@ export default function FleetManagementPage() {
               <tbody className="divide-y divide-smart-border text-smart-navy">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-smart-muted">Loading fleet inventory...</td>
+                    <td colSpan={7} className="py-8 text-center text-smart-muted">Loading fleet inventory...</td>
                   </tr>
                 ) : filteredVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-smart-muted">No vehicles registered. Click "+ Add Vehicle" to onboard.</td>
+                    <td colSpan={7} className="py-8 text-center text-smart-muted">No vehicles registered. Click "+ Add Vehicle" to onboard.</td>
                   </tr>
                 ) : (
                   filteredVehicles.map((v) => {
                     const hasDriver = !!v.default_driver;
                     return (
                       <tr key={v.id} className="hover:bg-slate-50/60 transition">
-                        {/* Vehicle No */}
                         <td className="py-3.5 px-4 font-mono font-black text-smart-navy">
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-smart-blue"></span>
@@ -331,7 +359,6 @@ export default function FleetManagementPage() {
                           </div>
                         </td>
 
-                        {/* Model & Capacity */}
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-smart-navy">{v.model}</div>
                           <div className="text-[11px] text-smart-muted font-medium">
@@ -339,7 +366,6 @@ export default function FleetManagementPage() {
                           </div>
                         </td>
 
-                        {/* Permanent Driver */}
                         <td className="py-3.5 px-4">
                           {hasDriver ? (
                             <div className="flex items-center gap-2">
@@ -353,7 +379,22 @@ export default function FleetManagementPage() {
                           )}
                         </td>
 
-                        {/* Contact */}
+                        <td className="py-3.5 px-4">
+                          {v.default_driver?.license_number ? (
+                            <div>
+                              <div className="font-mono font-bold text-smart-navy text-[11px]">
+                                {v.default_driver.license_number}
+                              </div>
+                              <div className="text-[10px] text-smart-muted flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-smart-blue" />
+                                <span>Exp: {v.default_driver.license_expiry ? new Date(v.default_driver.license_expiry).toLocaleDateString('en-IN') : 'N/A'}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-smart-muted">—</span>
+                          )}
+                        </td>
+
                         <td className="py-3.5 px-4 font-mono text-[11px] text-smart-muted font-medium">
                           {v.default_driver?.mobile_number ? (
                             <div className="flex items-center gap-1.5">
@@ -365,7 +406,6 @@ export default function FleetManagementPage() {
                           )}
                         </td>
 
-                        {/* Status */}
                         <td className="py-3.5 px-4">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                             v.status === 'ACTIVE'
@@ -376,7 +416,6 @@ export default function FleetManagementPage() {
                           </span>
                         </td>
 
-                        {/* Explicit Action Button */}
                         <td className="py-3.5 px-4 text-right">
                           <button
                             type="button"
@@ -403,11 +442,11 @@ export default function FleetManagementPage() {
       </main>
 
       {/* =======================================================================
-          A. "Add Vehicle" Modal with Driver Options
+          A. "Add Vehicle" Modal with Driver License & Expiry (Option B)
       ======================================================================= */}
       {isAddVehicleOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-smart-navy/40 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-white border border-smart-border rounded-2xl p-6 shadow-smart-lg space-y-5">
+          <div className="w-full max-w-lg bg-white border border-smart-border rounded-2xl p-6 shadow-smart-lg space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-smart-border pb-3">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-blue-50 text-smart-blue">
@@ -520,27 +559,66 @@ export default function FleetManagementPage() {
                       <option value="">-- No permanent driver (Unassigned) --</option>
                       {drivers.map((d) => (
                         <option key={d.id} value={d.id}>
-                          {d.name} ({d.mobile_number})
+                          {d.name} ({d.mobile_number}) {d.license_number ? `• ${d.license_number}` : ''}
                         </option>
                       ))}
                     </select>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5 pt-1">
-                    <input
-                      type="text"
-                      placeholder="Driver Full Name"
-                      value={quickDriverName}
-                      onChange={(e) => setQuickDriverName(e.target.value)}
-                      className="w-full bg-white border border-smart-border rounded-xl p-2 text-xs text-smart-navy focus:border-smart-blue focus:outline-none"
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Mobile (+91 98XXX XXXXX)"
-                      value={quickDriverMobile}
-                      onChange={(e) => setQuickDriverMobile(e.target.value)}
-                      className="w-full bg-white border border-smart-border rounded-xl p-2 text-xs text-smart-navy focus:border-smart-blue focus:outline-none"
-                    />
+                  <div className="space-y-2.5 pt-1">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-smart-navy text-[10px] font-bold mb-1">Driver Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Suresh Rathod"
+                          value={quickDriverName}
+                          onChange={(e) => setQuickDriverName(e.target.value)}
+                          className="w-full bg-white border border-smart-border rounded-xl p-2 text-xs text-smart-navy focus:border-smart-blue focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-smart-navy text-[10px] font-bold mb-1">Mobile Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="+91 99989 93551"
+                          value={quickDriverMobile}
+                          onChange={(e) => setQuickDriverMobile(e.target.value)}
+                          className="w-full bg-white border border-smart-border rounded-xl p-2 text-xs text-smart-navy focus:border-smart-blue focus:outline-none font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-smart-navy text-[10px] font-bold mb-1">License Number</label>
+                        <div className="relative">
+                          <FileText className="w-3.5 h-3.5 text-smart-muted absolute left-2.5 top-2.5" />
+                          <input
+                            type="text"
+                            placeholder="GJ-06-2020-0012345"
+                            value={quickDriverLicense}
+                            onChange={(e) => setQuickDriverLicense(e.target.value)}
+                            className="w-full bg-white border border-smart-border rounded-xl pl-8 pr-2 py-2 text-xs text-smart-navy font-mono uppercase focus:border-smart-blue focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-smart-navy text-[10px] font-bold mb-1">License Expiry Date *</label>
+                        <div className="relative">
+                          <Calendar className="w-3.5 h-3.5 text-smart-muted absolute left-2.5 top-2.5" />
+                          <input
+                            type="date"
+                            required
+                            value={quickDriverExpiry}
+                            onChange={(e) => setQuickDriverExpiry(e.target.value)}
+                            className="w-full bg-white border border-smart-border rounded-xl pl-8 pr-2 py-2 text-xs text-smart-navy font-medium focus:border-smart-blue focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -567,7 +645,7 @@ export default function FleetManagementPage() {
       )}
 
       {/* =======================================================================
-          C. Driver Edit Modal Workflow
+          C. Driver Edit Modal Workflow (Includes License & Expiry Updates)
       ======================================================================= */}
       {isEditDriverOpen && selectedVehicleForDriver && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-smart-navy/40 backdrop-blur-md">
@@ -606,6 +684,8 @@ export default function FleetManagementPage() {
                   onClick={() => {
                     setEditDriverId('');
                     setEditDriverMobile('');
+                    setEditDriverLicense('');
+                    setEditDriverExpiry('');
                   }}
                   className="px-2.5 py-1 rounded-lg bg-red-50 text-smart-danger border border-red-200 text-[10px] font-bold hover:bg-red-100 transition"
                 >
@@ -614,7 +694,7 @@ export default function FleetManagementPage() {
               )}
             </div>
 
-            <form onSubmit={handleSaveDriverAssignment} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveDriverAssignment} className="space-y-3.5 text-xs">
               <div>
                 <label className="block text-smart-navy mb-1.5 font-bold">Select Active Plant Driver</label>
                 <select
@@ -623,21 +703,25 @@ export default function FleetManagementPage() {
                     const did = e.target.value;
                     setEditDriverId(did);
                     const found = drivers.find((d) => d.id === did);
-                    if (found) setEditDriverMobile(found.mobile_number);
+                    if (found) {
+                      setEditDriverMobile(found.mobile_number);
+                      setEditDriverLicense(found.license_number || '');
+                      setEditDriverExpiry(found.license_expiry ? found.license_expiry.slice(0, 10) : '');
+                    }
                   }}
                   className="w-full p-2.5 rounded-xl bg-white border border-smart-border text-smart-navy font-bold focus:border-smart-blue focus:outline-none"
                 >
                   <option value="">-- No Driver (Leave Unassigned) --</option>
                   {drivers.map((d) => (
                     <option key={d.id} value={d.id}>
-                      {d.name} ({d.mobile_number})
+                      {d.name} ({d.mobile_number}) {d.license_number ? `• ${d.license_number}` : ''}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-smart-navy mb-1.5 font-bold">Driver Mobile Contact (Editable)</label>
+                <label className="block text-smart-navy mb-1 font-bold">Driver Mobile Contact</label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-smart-muted absolute left-3 top-2.5" />
                   <input
@@ -645,7 +729,29 @@ export default function FleetManagementPage() {
                     placeholder="+91 98250 44444"
                     value={editDriverMobile}
                     onChange={(e) => setEditDriverMobile(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 border border-smart-border text-smart-navy font-mono focus:bg-white focus:border-smart-blue focus:outline-none"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-smart-border text-smart-navy font-mono focus:bg-white focus:border-smart-blue focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-smart-navy mb-1 font-bold">License Number</label>
+                  <input
+                    type="text"
+                    placeholder="GJ-06-2020-XXXX"
+                    value={editDriverLicense}
+                    onChange={(e) => setEditDriverLicense(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-slate-50 border border-smart-border text-smart-navy font-mono uppercase focus:bg-white focus:border-smart-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-smart-navy mb-1 font-bold">License Expiry</label>
+                  <input
+                    type="date"
+                    value={editDriverExpiry}
+                    onChange={(e) => setEditDriverExpiry(e.target.value)}
+                    className="w-full p-2 rounded-xl bg-slate-50 border border-smart-border text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none"
                   />
                 </div>
               </div>

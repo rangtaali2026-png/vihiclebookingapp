@@ -422,10 +422,13 @@ export default {
             return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
           }
 
-          if (driver_id && (driver_mobile || driver_name)) {
+          const { license_number, license_expiry } = body;
+          if (driver_id && (driver_mobile || driver_name || license_number || license_expiry)) {
             const driverUpdates: any = {};
             if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
             if (driver_name) driverUpdates.name = driver_name;
+            if (license_number) driverUpdates.license_number = license_number;
+            if (license_expiry) driverUpdates.license_expiry = license_expiry;
 
             await supabase
               .from('drivers')
