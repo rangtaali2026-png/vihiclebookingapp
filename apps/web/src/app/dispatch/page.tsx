@@ -364,7 +364,15 @@ export default function DispatchPage() {
                 <select
                   required
                   value={selectedVehicleId}
-                  onChange={(e) => setSelectedVehicleId(e.target.value)}
+                  onChange={(e) => {
+                      const vId = e.target.value;
+                      setSelectedVehicleId(vId);
+                      // Auto-preload permanent assigned driver
+                      const matched = vehicles.find((v: any) => v.id === vId);
+                      if (matched?.default_driver_id) {
+                        setSelectedDriverId(matched.default_driver_id);
+                      }
+                    }}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
                 >
                   <option className="text-smart-navy bg-white py-1.5 font-medium" value="">-- Choose Vehicle --</option>
