@@ -156,6 +156,7 @@ export default function SmartDriveDashboard() {
     try {
       const payload = {
         site_id: session?.siteId || '11111111-1111-1111-1111-111111111111',
+        requester_id: (session?.userId && session.userId.length === 36) ? session.userId : '00000000-0000-0000-0000-000000000002',
         booking_reference: `BK-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`,
         employee_name: passengers[0]?.name || session?.fullName || 'Staff Employee',
         employee_email: session?.email || 'employee@planttransit.com',
