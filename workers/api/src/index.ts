@@ -888,35 +888,70 @@ export default {
           return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
         }
 
-        const bookingPayload = {
+        const employeeName = body.employee_name || 'Staff Employee';
+        const employeeEmail = body.employee_email || 'staff@planttransit.com';
+        const department = body.department || 'Plant Operations';
+
+        // Prepare manifest ensuring lead rider info is always present
+        let manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
+          ? body.passenger_manifest
+          : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
+
+        // Core columns guaranteed by the initial schema
+        const corePayload: any = {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
-          employee_name: body.employee_name || 'Staff Employee',
-          // Optional employee_email fallback
-          ...(body.employee_email ? { employee_email: body.employee_email } : {}),
-          // Optional department fallback
-          ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
           target_category: body.target_category || 'SEDAN',
           origin_location: body.origin_location,
           destination_location: body.destination_location,
           pickup_time: body.pickup_time || new Date().toISOString(),
-          passenger_count: body.passenger_count || 1,
-          passenger_manifest: body.passenger_manifest || [],
+          passenger_count: body.passenger_count || manifest.length || 1,
+          passenger_manifest: manifest,
           status: body.status || 'PENDING',
           purpose: body.purpose || 'Official Plant Duty',
           allotted_vehicle_id: body.allotted_vehicle_id || null,
           allotted_driver_id: body.allotted_driver_id || null
         };
 
-        const { data: createdBooking, error: insertErr } = await supabase
+        // Try inserting with optional columns first
+        const fullPayload = {
+          ...corePayload,
+          employee_name: employeeName,
+          employee_email: employeeEmail,
+          department: department
+        };
+
+        let createdBooking = null;
+        let { data, error: insertErr } = await supabase
           .from('bookings')
-          .insert(bookingPayload)
+          .insert(fullPayload)
           .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
           .single();
 
-        if (insertErr) throw insertErr;
+        // Fallback: If PostgREST fails due to schema columns missing, retry with corePayload only
+        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('schema cache'))) {
+          console.warn('Falling back to core booking columns:', insertErr.message);
+          const retry = await supabase
+            .from('bookings')
+            .insert(corePayload)
+            .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+            .single();
 
+          if (retry.error) throw retry.error;
+          createdBooking = retry.data;
+        } else if (insertErr) {
+          throw insertErr;
+        } else {
+          createdBooking = data;
+        }
+
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
+      }
         return jsonResponse({
           success: true,
           message: 'Booking reservation created successfully',
@@ -1513,35 +1548,70 @@ export default {
           return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
         }
 
-        const bookingPayload = {
+        const employeeName = body.employee_name || 'Staff Employee';
+        const employeeEmail = body.employee_email || 'staff@planttransit.com';
+        const department = body.department || 'Plant Operations';
+
+        // Prepare manifest ensuring lead rider info is always present
+        let manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
+          ? body.passenger_manifest
+          : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
+
+        // Core columns guaranteed by the initial schema
+        const corePayload: any = {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
-          employee_name: body.employee_name || 'Staff Employee',
-          // Optional employee_email fallback
-          ...(body.employee_email ? { employee_email: body.employee_email } : {}),
-          // Optional department fallback
-          ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
           target_category: body.target_category || 'SEDAN',
           origin_location: body.origin_location,
           destination_location: body.destination_location,
           pickup_time: body.pickup_time || new Date().toISOString(),
-          passenger_count: body.passenger_count || 1,
-          passenger_manifest: body.passenger_manifest || [],
+          passenger_count: body.passenger_count || manifest.length || 1,
+          passenger_manifest: manifest,
           status: body.status || 'PENDING',
           purpose: body.purpose || 'Official Plant Duty',
           allotted_vehicle_id: body.allotted_vehicle_id || null,
           allotted_driver_id: body.allotted_driver_id || null
         };
 
-        const { data: createdBooking, error: insertErr } = await supabase
+        // Try inserting with optional columns first
+        const fullPayload = {
+          ...corePayload,
+          employee_name: employeeName,
+          employee_email: employeeEmail,
+          department: department
+        };
+
+        let createdBooking = null;
+        let { data, error: insertErr } = await supabase
           .from('bookings')
-          .insert(bookingPayload)
+          .insert(fullPayload)
           .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
           .single();
 
-        if (insertErr) throw insertErr;
+        // Fallback: If PostgREST fails due to schema columns missing, retry with corePayload only
+        if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.includes('schema cache'))) {
+          console.warn('Falling back to core booking columns:', insertErr.message);
+          const retry = await supabase
+            .from('bookings')
+            .insert(corePayload)
+            .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+            .single();
 
+          if (retry.error) throw retry.error;
+          createdBooking = retry.data;
+        } else if (insertErr) {
+          throw insertErr;
+        } else {
+          createdBooking = data;
+        }
+
+        return jsonResponse({
+          success: true,
+          message: 'Booking reservation created successfully',
+          booking: createdBooking
+        }, 201, corsHeaders);
+      }
         return jsonResponse({
           success: true,
           message: 'Booking reservation created successfully',
