@@ -961,34 +961,6 @@ export default {
           console.error('Booking creation error:', err);
           return jsonResponse({ error: err.message || 'Internal booking creation failed' }, 500, corsHeaders);
         }
-      }, 201, corsHeaders);
-          }
-          throw insertErr;
-        }
-
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
       }
 
       // GET /api/fleet/vehicles/:id/active-trip
@@ -1643,24 +1615,6 @@ export default {
           throw insertErr;
         }
 
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
-        return jsonResponse({
-          success: true,
-          message: 'Booking reservation created successfully',
-          booking: createdBooking
-        }, 201, corsHeaders);
-      }
         return jsonResponse({
           success: true,
           message: 'Booking reservation created successfully',
