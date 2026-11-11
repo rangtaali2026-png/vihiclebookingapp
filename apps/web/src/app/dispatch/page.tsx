@@ -5,6 +5,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { fetchApi } from '@/lib/api';
 import type { Booking, Vehicle, Driver, BookingPassenger } from '@plant-transit/shared-types';
+import { Users, X } from 'lucide-react';
+
+type ManifestBooking = Booking & {
+  passenger_manifest?: BookingPassenger[] | string | null;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  department?: string | null;
+  employee_phone?: string | null;
+};
 
 export default function DispatchPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -29,6 +38,7 @@ export default function DispatchPage() {
     logs: any[];
   } | null>(null);
   const [loadingLogs, setLoadingLogs] = useState<boolean>(false);
+  const [selectedManifestBooking, setSelectedManifestBooking] = useState<ManifestBooking | null>(null);
 
   const loadData = async () => {
     try {
@@ -262,7 +272,7 @@ export default function DispatchPage() {
                       <td className="py-3 px-4">
                         <button
                           type="button"
-                          onClick={() => setVerifyingBooking(b)}
+                          onClick={() => setSelectedManifestBooking(b)}
                           className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium underline"
                         >
                           👥 {b.booking_passengers?.filter(p => p.is_boarded).length || 0}/{b.passenger_count} Boarded
@@ -526,7 +536,7 @@ export default function DispatchPage() {
       {/* =======================================================================
           Passenger Manifest Roster Modal
       ======================================================================= */}
-      {isManifestOpen && selectedManifestBooking && (
+      {selectedManifestBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-smart-navy/40 backdrop-blur-md">
           <div className="w-full max-w-2xl bg-white border border-smart-border rounded-2xl p-6 shadow-smart-lg space-y-5 animate-in fade-in duration-150">
             
@@ -554,10 +564,7 @@ export default function DispatchPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setIsManifestOpen(false);
-                  setSelectedManifestBooking(null);
-                }}
+                onClick={() => setSelectedManifestBooking(null)}
                 className="p-1.5 rounded-xl text-smart-muted hover:text-smart-navy hover:bg-slate-100 transition"
               >
                 <X className="w-5 h-5" />
@@ -686,10 +693,7 @@ export default function DispatchPage() {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  setIsManifestOpen(false);
-                  setSelectedManifestBooking(null);
-                }}
+                onClick={() => setSelectedManifestBooking(null)}
                 className="smart-gradient-blue text-white px-5 py-2 rounded-xl font-bold shadow-smart-md hover:opacity-95 transition"
               >
                 Close Roster

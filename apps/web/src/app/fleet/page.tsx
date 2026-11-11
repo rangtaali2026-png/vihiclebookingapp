@@ -363,7 +363,7 @@ export default function FleetManagementPage() {
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-smart-navy">{v.model}</div>
                           <div className="text-[11px] text-smart-muted font-medium">
-                            {v.category} • {v.seat_capacity || v.capacity || 4} Seats
+                            {v.category} • {v.capacity || 4} Seats
                           </div>
                         </td>
 
