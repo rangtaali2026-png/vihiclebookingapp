@@ -217,6 +217,7 @@ export default function FleetManagementPage() {
           model: newModel.trim(),
           category: newCategory,
           capacity: Number(newCapacity),
+          seat_capacity: Number(newCapacity),
           status: 'ACTIVE',
           default_driver_id: finalDriverId || null
         })
@@ -362,7 +363,7 @@ export default function FleetManagementPage() {
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-smart-navy">{v.model}</div>
                           <div className="text-[11px] text-smart-muted font-medium">
-                            {v.category} • {v.capacity} Seats
+                            {v.category} • {v.seat_capacity || v.capacity || 4} Seats
                           </div>
                         </td>
 
