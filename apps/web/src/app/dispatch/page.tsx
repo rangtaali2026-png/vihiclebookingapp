@@ -133,7 +133,7 @@ export default function DispatchPage() {
         method: 'POST',
         body: JSON.stringify({
           booking_id: verifyingBooking.id,
-          employee_id: scanEmpId.trim().toUpperCase(),
+          booking_id: selectedBooking?.id || selectedBooking?.booking_reference, booking_reference: selectedBooking?.booking_reference, employee_id: scanEmpId.trim().trim().toUpperCase(),
         }),
       });
 

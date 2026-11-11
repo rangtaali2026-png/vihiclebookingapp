@@ -303,10 +303,32 @@ export default {
       if (request.method === 'POST' && (path === '/api/dispatch/verify-boarding' || path === '/api/dispatch/verify-boarding/')) {
         try {
           const body = await request.json() as any;
-          const bookingIdentifier = body.booking_id || body.booking_reference;
-          const empId = body.employee_id;
+          
+          // Resilient parameter resolution supporting all client variations
+          const bookingIdentifier = (
+            body.booking_id || 
+            body.booking_reference || 
+            body.bookingId || 
+            body.bookingRef || 
+            body.id || 
+            body.ref
+          )?.toString().trim();
+
+          const empId = (
+            body.employee_id || 
+            body.employeeId || 
+            body.emp_id || 
+            body.empId || 
+            body.badge_number || 
+            body.badgeId
+          )?.toString().trim();
 
           if (!bookingIdentifier || !empId) {
+            return jsonResponse({ 
+              error: 'booking_id (or booking_reference) and employee_id are required',
+              received: { bookingIdentifier: bookingIdentifier || null, empId: empId || null }
+            }, 400, corsHeaders);
+          }
             return jsonResponse({ error: 'booking_id (or booking_reference) and employee_id are required' }, 400, corsHeaders);
           }
 
