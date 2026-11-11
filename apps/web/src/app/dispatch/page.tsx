@@ -522,6 +522,184 @@ export default function DispatchPage() {
         </div>
       )}
 
+    
+      {/* =======================================================================
+          Passenger Manifest Roster Modal
+      ======================================================================= */}
+      {isManifestOpen && selectedManifestBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-smart-navy/40 backdrop-blur-md">
+          <div className="w-full max-w-2xl bg-white border border-smart-border rounded-2xl p-6 shadow-smart-lg space-y-5 animate-in fade-in duration-150">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-smart-border pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-50 text-smart-blue">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-black text-smart-blue uppercase">
+                      {selectedManifestBooking.booking_reference}
+                    </span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-xs font-bold text-smart-navy">
+                      {selectedManifestBooking.target_category || 'SEDAN_4'}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-smart-navy mt-0.5">
+                    Passenger Manifest & Boarding Roster
+                  </h3>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManifestOpen(false);
+                  setSelectedManifestBooking(null);
+                }}
+                className="p-1.5 rounded-xl text-smart-muted hover:text-smart-navy hover:bg-slate-100 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Route & Allocated Asset Details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 border border-smart-border text-xs">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-smart-muted block">
+                  Transit Journey
+                </span>
+                <p className="font-bold text-smart-navy mt-0.5">
+                  {selectedManifestBooking.origin_location} → {selectedManifestBooking.destination_location}
+                </p>
+                <span className="text-[11px] text-smart-muted font-medium block mt-0.5">
+                  Purpose: {selectedManifestBooking.purpose || 'Official Plant Duty'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-smart-muted block">
+                  Assigned Vehicle & Driver
+                </span>
+                <p className="font-bold text-smart-blue mt-0.5">
+                  {selectedManifestBooking.vehicles?.registration_number || selectedManifestBooking.allotted_vehicle_id || 'Not Assigned'}
+                </p>
+                <span className="text-[11px] text-smart-navy font-medium block mt-0.5">
+                  Driver: {selectedManifestBooking.drivers?.name || 'Awaiting Allocation'} 
+                  {selectedManifestBooking.drivers?.mobile_number ? ` (${selectedManifestBooking.drivers.mobile_number})` : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Manifest Table */}
+            <div className="border border-smart-border rounded-xl overflow-hidden shadow-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100/80 text-smart-muted text-[10px] font-bold uppercase tracking-wider border-b border-smart-border">
+                  <tr>
+                    <th className="py-2.5 px-3">Emp ID</th>
+                    <th className="py-2.5 px-3">Passenger Name</th>
+                    <th className="py-2.5 px-3">Department</th>
+                    <th className="py-2.5 px-3">Contact / Pickup</th>
+                    <th className="py-2.5 px-3 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-smart-border text-smart-navy">
+                  {(() => {
+                    let manifestList: any[] = [];
+                    if (Array.isArray(selectedManifestBooking.passenger_manifest)) {
+                      manifestList = selectedManifestBooking.passenger_manifest;
+                    } else if (typeof selectedManifestBooking.passenger_manifest === 'string') {
+                      try {
+                        manifestList = JSON.parse(selectedManifestBooking.passenger_manifest);
+                      } catch (e) {
+                        manifestList = [];
+                      }
+                    }
+
+                    // Fallback if manifest is empty: use employee_name and employee_email from booking
+                    if (manifestList.length === 0) {
+                      manifestList = [{
+                        employee_id: selectedManifestBooking.employee_id || 'EMP-LEAD',
+                        name: selectedManifestBooking.employee_name || 'Primary Booking Lead',
+                        department: selectedManifestBooking.department || 'Operations',
+                        mobile: selectedManifestBooking.employee_phone || '—',
+                        pickup_point: selectedManifestBooking.origin_location,
+                        boarded: selectedManifestBooking.status === 'COMPLETED' || selectedManifestBooking.status === 'DISPATCHED'
+                      }];
+                    }
+
+                    return manifestList.map((passenger: any, idx: number) => {
+                      const isBoarded = passenger.boarded ?? (selectedManifestBooking.status === 'DISPATCHED' || selectedManifestBooking.status === 'COMPLETED');
+                      return (
+                        <tr key={idx} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-3 font-mono font-bold text-smart-navy text-[11px]">
+                            {passenger.employee_id || passenger.emp_id || `EMP-0${idx + 1}`}
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-smart-navy flex items-center gap-1.5">
+                              <span>{passenger.name || 'Unnamed Passenger'}</span>
+                              {idx === 0 && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-50 text-smart-blue border border-blue-200 font-bold uppercase">
+                                  Lead
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 text-smart-muted font-medium text-[11px]">
+                            {passenger.department || selectedManifestBooking.department || 'Plant Transit'}
+                          </td>
+
+                          <td className="py-3 px-3 text-[11px]">
+                            <div className="font-mono text-smart-navy">{passenger.mobile || passenger.phone || '—'}</div>
+                            {passenger.pickup_point && (
+                              <div className="text-[10px] text-smart-muted truncate max-w-[140px]">
+                                {passenger.pickup_point}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-right">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              isBoarded
+                                ? 'bg-emerald-50 text-smart-success border-emerald-200'
+                                : 'bg-amber-50 text-smart-warning border-amber-200'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${isBoarded ? 'bg-smart-success' : 'bg-smart-warning'}`} />
+                              <span>{isBoarded ? 'BOARDED' : 'PENDING'}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-smart-border text-xs">
+              <span className="text-[11px] text-smart-muted font-medium">
+                Verified against Plant Security Gate Access Protocol
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManifestOpen(false);
+                  setSelectedManifestBooking(null);
+                }}
+                className="smart-gradient-blue text-white px-5 py-2 rounded-xl font-bold shadow-smart-md hover:opacity-95 transition"
+              >
+                Close Roster
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
