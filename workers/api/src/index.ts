@@ -727,7 +727,7 @@ export default {
               target_category: r.default_vehicle_category || 'BUS',
               origin_location: r.origin_hub,
               destination_location: r.destination_plant,
-              pickup_time: `${body.target_date}T${r.departure_time}`,
+              
               passenger_count: Math.max(1, roster.length),
               passenger_manifest: passengerManifest,
               status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
@@ -880,73 +880,88 @@ export default {
         return jsonResponse({ success: true, bookings: bookings || [] }, 200, corsHeaders);
       }
 
-      // POST /api/dispatch/create (and /api/fleet/bookings alias)
+            // POST /api/dispatch/create (and /api/fleet/bookings alias)
       if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
-        const body = await request.json() as any;
+        try {
+          const body = await request.json() as any;
 
-        if (!body.site_id || !body.origin_location || !body.destination_location) {
-          return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+          if (!body.site_id || !body.origin_location || !body.destination_location) {
+            return jsonResponse({ error: 'site_id, origin_location, and destination_location are required' }, 400, corsHeaders);
+          }
+
+          const employeeName = body.employee_name || 'Staff Employee';
+          const employeeEmail = body.employee_email || 'staff@planttransit.com';
+          const department = body.department || 'Plant Operations';
+          const pickupDate = body.pickup_time ? new Date(body.pickup_time) : new Date();
+          const endDate = new Date(pickupDate.getTime() + 2 * 60 * 60 * 1000);
+
+          let bType = 'PRIVATE';
+          if (body.booking_type === 'SHARED' || body.booking_type === 'SHARED_COMMUTE') {
+            bType = 'SHARED';
+          }
+
+          let tCat = 'SEDAN_4';
+          const catUpper = String(body.target_category || '').toUpperCase();
+          if (catUpper.includes('SUV')) tCat = 'SUV_6';
+          else if (catUpper.includes('VAN')) tCat = 'VAN_12';
+          else if (catUpper.includes('BUS')) tCat = 'BUS_50';
+
+          const manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
+            ? body.passenger_manifest
+            : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
+
+          const bookingRecord: any = {
+            site_id: body.site_id,
+            booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
+            booking_type: bType,
+            target_category: tCat,
+            origin_location: body.origin_location,
+            destination_location: body.destination_location,
+            scheduled_start_time: pickupDate.toISOString(),
+            scheduled_end_time: body.scheduled_end_time || endDate.toISOString(),
+            passenger_count: body.passenger_count || manifest.length || 1,
+            status: body.status || 'PENDING',
+            purpose: body.purpose || 'Client Plant Visit',
+            department: department,
+            employee_name: employeeName,
+            employee_email: employeeEmail,
+            passenger_manifest: manifest
+          };
+
+          let createdBooking = null;
+          const { data, error: insertErr } = await supabase
+            .from('bookings')
+            .insert(bookingRecord)
+            .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+            .single();
+
+          if (insertErr) {
+            if (insertErr.code === 'PGRST204' || insertErr.message?.includes('passenger_manifest')) {
+              delete bookingRecord.passenger_manifest;
+              const retry = await supabase
+                .from('bookings')
+                .insert(bookingRecord)
+                .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
+                .single();
+              if (retry.error) throw retry.error;
+              createdBooking = retry.data;
+            } else {
+              throw insertErr;
+            }
+          } else {
+            createdBooking = data;
+          }
+
+          return jsonResponse({
+            success: true,
+            message: 'Booking reservation created successfully',
+            booking: createdBooking
+          }, 201, corsHeaders);
+        } catch (err: any) {
+          console.error('Booking creation error:', err);
+          return jsonResponse({ error: err.message || 'Internal booking creation failed' }, 500, corsHeaders);
         }
-
-        const employeeName = body.employee_name || 'Staff Employee';
-        const employeeEmail = body.employee_email || 'staff@planttransit.com';
-        const department = body.department || 'Plant Operations';
-        const pickupDate = body.pickup_time ? new Date(body.pickup_time) : new Date();
-        const endDate = new Date(pickupDate.getTime() + 2 * 60 * 60 * 1000); // 2 hr default buffer
-
-        // Normalize booking type
-        let bType = 'PRIVATE';
-        if (body.booking_type === 'SHARED' || body.booking_type === 'SHARED_COMMUTE') {
-          bType = 'SHARED';
-        }
-
-        // Normalize target_category enum
-        let tCat = 'SEDAN_4';
-        const catUpper = String(body.target_category || '').toUpperCase();
-        if (catUpper.includes('SUV')) tCat = 'SUV_6';
-        else if (catUpper.includes('VAN')) tCat = 'VAN_12';
-        else if (catUpper.includes('BUS')) tCat = 'BUS_50';
-        else tCat = 'SEDAN_4';
-
-        const manifest = Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0
-          ? body.passenger_manifest
-          : [{ name: employeeName, employee_id: 'EMP-01', department, email: employeeEmail }];
-
-        const bookingRecord: any = {
-          site_id: body.site_id,
-          booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
-          booking_type: bType,
-          target_category: tCat,
-          origin_location: body.origin_location,
-          destination_location: body.destination_location,
-          scheduled_start_time: pickupDate.toISOString(),
-          scheduled_end_time: body.scheduled_end_time || endDate.toISOString(),
-          passenger_count: body.passenger_count || manifest.length || 1,
-          status: body.status || 'PENDING',
-          purpose: body.purpose || 'Client Plant Visit',
-          department: department,
-          employee_name: employeeName,
-          employee_email: employeeEmail,
-          passenger_manifest: manifest
-        };
-
-        const { data: createdBooking, error: insertErr } = await supabase
-          .from('bookings')
-          .insert(bookingRecord)
-          .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
-          .single();
-
-        if (insertErr) {
-          // Fallback if passenger_manifest column is not cached
-          if (insertErr.code === 'PGRST204' || insertErr.message?.includes('passenger_manifest')) {
-            delete bookingRecord.passenger_manifest;
-            const retry = await supabase
-              .from('bookings')
-              .insert(bookingRecord)
-              .select('*, vehicles(registration_number, model), drivers(name, mobile_number)')
-              .single();
-            if (retry.error) throw retry.error;
-            return jsonResponse({ success: true, message: 'Booking created', booking: retry.data }, 201, corsHeaders);
+      }, 201, corsHeaders);
           }
           throw insertErr;
         }
@@ -1404,7 +1419,7 @@ export default {
               target_category: r.default_vehicle_category || 'BUS',
               origin_location: r.origin_hub,
               destination_location: r.destination_plant,
-              pickup_time: `${body.target_date}T${r.departure_time}`,
+              
               passenger_count: Math.max(1, roster.length),
               passenger_manifest: passengerManifest,
               status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
@@ -1971,7 +1986,7 @@ export default {
               target_category: route.default_vehicle_category || 'BUS',
               origin_location: route.origin_hub,
               destination_location: route.destination_plant,
-              pickup_time: `${targetDate}T${route.departure_time}`,
+              
               passenger_count: Math.max(1, roster.length),
               passenger_manifest: manifest,
               status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
