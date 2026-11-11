@@ -421,7 +421,7 @@ export default {
           if (bErr) console.error('Analytics bookings error:', bErr);
 
           // Fetch vehicles
-          let vQuery = supabase.from('vehicles').select('id, registration_number, model, category, seat_capacity, status, site_id');
+          let vQuery = supabase.from('vehicles').select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number, status)');
           if (siteId) vQuery = vQuery.eq('site_id', siteId);
           const { data: vehicles, error: vErr } = await vQuery;
           if (vErr) console.error('Analytics vehicles error:', vErr);
@@ -961,6 +961,52 @@ export default {
         } catch (err: any) {
           console.error('Booking creation error:', err);
           return jsonResponse({ error: err.message || 'Internal booking creation failed' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/fleet/vehicles/assign-driver
+      if (request.method === 'POST' && path === '/api/fleet/vehicles/assign-driver') {
+        try {
+          const body = await request.json() as any;
+          const { vehicle_id, driver_id, driver_mobile, driver_name } = body;
+
+          if (!vehicle_id) {
+            return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
+          }
+
+          // Optional: Update driver details (mobile or name) if updated inline
+          if (driver_id && (driver_mobile || driver_name)) {
+            const driverUpdates: any = { updated_at: new Date().toISOString() };
+            if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
+            if (driver_name) driverUpdates.name = driver_name;
+
+            await supabase
+              .from('drivers')
+              .update(driverUpdates)
+              .eq('id', driver_id);
+          }
+
+          // Update vehicle permanent default driver
+          const { data: updatedVehicle, error: updateErr } = await supabase
+            .from('vehicles')
+            .update({
+              default_driver_id: driver_id || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', vehicle_id)
+            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number, status)')
+            .single();
+
+          if (updateErr) throw updateErr;
+
+          return jsonResponse({
+            success: true,
+            message: driver_id ? 'Driver successfully assigned to vehicle' : 'Driver unassigned from vehicle',
+            vehicle: updatedVehicle
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          console.error('Driver assignment error:', err);
+          return jsonResponse({ error: err.message || 'Failed to update vehicle driver assignment' }, 500, corsHeaders);
         }
       }
 
@@ -1622,6 +1668,52 @@ export default {
           message: 'Booking reservation created successfully',
           booking: createdBooking
         }, 201, corsHeaders);
+      }
+
+      // POST /api/fleet/vehicles/assign-driver
+      if (request.method === 'POST' && path === '/api/fleet/vehicles/assign-driver') {
+        try {
+          const body = await request.json() as any;
+          const { vehicle_id, driver_id, driver_mobile, driver_name } = body;
+
+          if (!vehicle_id) {
+            return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
+          }
+
+          // Optional: Update driver details (mobile or name) if updated inline
+          if (driver_id && (driver_mobile || driver_name)) {
+            const driverUpdates: any = { updated_at: new Date().toISOString() };
+            if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
+            if (driver_name) driverUpdates.name = driver_name;
+
+            await supabase
+              .from('drivers')
+              .update(driverUpdates)
+              .eq('id', driver_id);
+          }
+
+          // Update vehicle permanent default driver
+          const { data: updatedVehicle, error: updateErr } = await supabase
+            .from('vehicles')
+            .update({
+              default_driver_id: driver_id || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', vehicle_id)
+            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number, status)')
+            .single();
+
+          if (updateErr) throw updateErr;
+
+          return jsonResponse({
+            success: true,
+            message: driver_id ? 'Driver successfully assigned to vehicle' : 'Driver unassigned from vehicle',
+            vehicle: updatedVehicle
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          console.error('Driver assignment error:', err);
+          return jsonResponse({ error: err.message || 'Failed to update vehicle driver assignment' }, 500, corsHeaders);
+        }
       }
 
       // GET /api/fleet/vehicles?site_id=...&category=...
