@@ -875,7 +875,8 @@ export default {
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
           employee_name: body.employee_name || 'Staff Employee',
           employee_email: body.employee_email || 'staff@planttransit.com',
-          department: body.department || 'Plant Operations',
+          // Optional department fallback
+          ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
           target_category: body.target_category || 'SEDAN',
           origin_location: body.origin_location,
@@ -1498,7 +1499,8 @@ export default {
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
           employee_name: body.employee_name || 'Staff Employee',
           employee_email: body.employee_email || 'staff@planttransit.com',
-          department: body.department || 'Plant Operations',
+          // Optional department fallback
+          ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
           target_category: body.target_category || 'SEDAN',
           origin_location: body.origin_location,

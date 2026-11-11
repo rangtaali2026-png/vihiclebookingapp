@@ -19,7 +19,10 @@ import {
   Car,
   ChevronRight,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Trash2,
+  UserPlus
 } from 'lucide-react';
 
 interface Passenger {
@@ -45,6 +48,13 @@ interface Booking {
   drivers?: { name: string; mobile_number: string };
 }
 
+const CATEGORY_CAPACITIES = {
+  SEDAN: 4,
+  SUV: 6,
+  VAN: 12,
+  BUS: 50,
+};
+
 export default function SmartDriveDashboard() {
   const { session } = useAuth();
 
@@ -59,13 +69,15 @@ export default function SmartDriveDashboard() {
     return d.toISOString().slice(0, 16);
   });
   const [purpose, setPurpose] = useState('Cross-Plant Engineering Audit');
+
+  // Dynamic Multi-Passenger Roster
   const [passengers, setPassengers] = useState<Passenger[]>([
     {
       name: session?.fullName || 'Dhaval Mungara',
       employee_id: 'EMP-VAD-08',
       department: 'Infrastructure & Systems',
       mobile: '+91 98251 12345',
-      pickup_point: 'Admin Building'
+      pickup_point: 'Admin Gate 1'
     }
   ]);
 
@@ -73,6 +85,8 @@ export default function SmartDriveDashboard() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const maxSeats = CATEGORY_CAPACITIES[category];
 
   const loadBookings = async () => {
     setLoading(true);
@@ -93,17 +107,57 @@ export default function SmartDriveDashboard() {
     loadBookings();
   }, [session?.siteId]);
 
-  // Handle Form Submission
+  // Attendee Roster Actions
+  const handleAddPassenger = () => {
+    if (passengers.length >= maxSeats) {
+      alert(`The selected category (${category}) has a maximum limit of ${maxSeats} seats.`);
+      return;
+    }
+    setPassengers([
+      ...passengers,
+      {
+        name: '',
+        employee_id: '',
+        department: passengers[0]?.department || 'Plant Operations',
+        mobile: '',
+        pickup_point: origin
+      }
+    ]);
+  };
+
+  const handleUpdatePassenger = (index: number, field: keyof Passenger, value: string) => {
+    const updated = [...passengers];
+    updated[index] = { ...updated[index], [field]: value };
+    setPassengers(updated);
+  };
+
+  const handleRemovePassenger = (index: number) => {
+    if (passengers.length <= 1) return;
+    setPassengers(passengers.filter((_, idx) => idx !== index));
+  };
+
+  // Submit Reservation
   const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setFeedback(null);
 
+    // Validate that attendee names and IDs are filled
+    const invalidPassenger = passengers.find(p => !p.name.trim() || !p.employee_id.trim());
+    if (invalidPassenger) {
+      setFeedback({
+        type: 'error',
+        message: 'Please provide Name and Employee ID for all passenger attendees.'
+      });
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const payload = {
         site_id: session?.siteId || '11111111-1111-1111-1111-111111111111',
-        booking_reference: `BK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000 + Math.random() * 9000)}`,
-        employee_name: session?.fullName || 'Dhaval Mungara',
+        booking_reference: `BK-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`,
+        employee_name: passengers[0]?.name || session?.fullName || 'Staff Employee',
         employee_email: session?.email || 'employee@planttransit.com',
         department: passengers[0]?.department || 'Plant Operations',
         booking_type: bookingType === 'EXCLUSIVE' ? 'PRIVATE_DUTY' : 'SHARED_COMMUTE',
@@ -124,7 +178,7 @@ export default function SmartDriveDashboard() {
 
       setFeedback({
         type: 'success',
-        message: 'Your vehicle reservation request has been submitted successfully.'
+        message: `Your reservation for ${passengers.length} passenger(s) has been submitted successfully.`
       });
       loadBookings();
     } catch (err: any) {
@@ -137,15 +191,13 @@ export default function SmartDriveDashboard() {
     }
   };
 
-  // Quick Action: Book Again
   const handleBookAgain = (prev: Booking) => {
     setOrigin(prev.origin_location);
     setDestination(prev.destination_location);
     setPurpose(`Re-booking: ${prev.purpose || 'Official Plant Transit'}`);
-    window.scrollTo({ top: 380, behavior: 'smooth' });
+    window.scrollTo({ top: 350, behavior: 'smooth' });
   };
 
-  // Metrics
   const totalBookings = bookings.length;
   const upcomingTrips = bookings.filter(b => b.status === 'DISPATCHED' || b.status === 'PENDING').length;
   const pendingApproval = bookings.filter(b => b.status === 'PENDING').length;
@@ -168,7 +220,7 @@ export default function SmartDriveDashboard() {
               Welcome back, {session?.fullName || 'Employee'}
             </h1>
             <p className="text-xs sm:text-sm text-smart-muted mt-0.5">
-              Request, track and manage your manufacturing plant transits across Gujarat facilities.
+              Request, track, and manage multi-passenger manufacturing plant transits.
             </p>
           </div>
 
@@ -192,8 +244,7 @@ export default function SmartDriveDashboard() {
 
         {/* Dashboard Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {/* Total Bookings */}
-          <div className="smart-glass-card p-5 relative overflow-hidden group">
+          <div className="smart-glass-card p-5 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Total Bookings</span>
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-smart-blue flex items-center justify-center font-bold">
@@ -209,7 +260,6 @@ export default function SmartDriveDashboard() {
             </div>
           </div>
 
-          {/* Upcoming Trips */}
           <div className="smart-glass-card p-5 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Upcoming Trips</span>
@@ -223,7 +273,6 @@ export default function SmartDriveDashboard() {
             </div>
           </div>
 
-          {/* Pending Approval */}
           <div className="smart-glass-card p-5 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Pending Approval</span>
@@ -237,7 +286,6 @@ export default function SmartDriveDashboard() {
             </div>
           </div>
 
-          {/* Completed Trips */}
           <div className="smart-glass-card p-5 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Completed Trips</span>
@@ -252,10 +300,10 @@ export default function SmartDriveDashboard() {
           </div>
         </div>
 
-        {/* Main Dashboard Layout: Left (Booking Form) + Right (3D Vehicle Showcase) */}
+        {/* Main Dashboard Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Side: New Vehicle Booking Form (7 Cols) */}
+          {/* Left Side: Booking Form + Multi-Attendee Roster (7 Cols) */}
           <div className="lg:col-span-7 smart-glass-card p-6 sm:p-7 space-y-6">
             <div className="flex items-center justify-between border-b border-smart-border pb-4">
               <div>
@@ -263,7 +311,6 @@ export default function SmartDriveDashboard() {
                 <h2 className="text-lg font-black text-smart-navy mt-0.5">Book Official Plant Transit</h2>
               </div>
 
-              {/* Exclusive / Shared Toggle */}
               <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold text-smart-muted">
                 <button
                   type="button"
@@ -301,9 +348,9 @@ export default function SmartDriveDashboard() {
               </div>
             )}
 
-            <form onSubmit={handleCreateBooking} className="space-y-4">
+            <form onSubmit={handleCreateBooking} className="space-y-5">
               
-              {/* Vehicle Category Selector */}
+              {/* Category Selector */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy mb-2">
                   Target Vehicle Category
@@ -313,7 +360,7 @@ export default function SmartDriveDashboard() {
                     { id: 'SEDAN', label: 'Executive Sedan', seats: '4 Seats' },
                     { id: 'SUV', label: 'Premium SUV', seats: '6 Seats' },
                     { id: 'VAN', label: 'Plant Van', seats: '12 Seats' },
-                    { id: 'BUS', label: 'Transit Bus', seats: '32-50 Seats' },
+                    { id: 'BUS', label: 'Transit Bus', seats: '50 Seats' },
                   ].map((cat) => (
                     <button
                       key={cat.id}
@@ -348,7 +395,7 @@ export default function SmartDriveDashboard() {
                       value={origin}
                       onChange={(e) => setOrigin(e.target.value)}
                       placeholder="e.g. Vadodara Gate 1"
-                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                      className="w-full bg-slate-50 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition"
                     />
                   </div>
                 </div>
@@ -365,7 +412,7 @@ export default function SmartDriveDashboard() {
                       value={destination}
                       onChange={(e) => setDestination(e.target.value)}
                       placeholder="e.g. Dahej Heavy Complex"
-                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                      className="w-full bg-slate-50 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition"
                     />
                   </div>
                 </div>
@@ -384,7 +431,7 @@ export default function SmartDriveDashboard() {
                       required
                       value={pickupTime}
                       onChange={(e) => setPickupTime(e.target.value)}
-                      className="w-full bg-slate-50/80 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition font-medium"
+                      className="w-full bg-slate-50 border border-smart-border rounded-xl pl-10 pr-3 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition font-medium"
                     />
                   </div>
                 </div>
@@ -398,13 +445,88 @@ export default function SmartDriveDashboard() {
                     required
                     value={purpose}
                     onChange={(e) => setPurpose(e.target.value)}
-                    placeholder="e.g. Safety Inspection, Client Visit"
-                    className="w-full bg-slate-50/80 border border-smart-border rounded-xl px-3.5 py-2.5 text-xs text-smart-navy placeholder-slate-400 focus:bg-white focus:border-smart-blue focus:outline-none transition"
+                    placeholder="e.g. Safety Inspection, Project Meeting"
+                    className="w-full bg-slate-50 border border-smart-border rounded-xl px-3.5 py-2.5 text-xs text-smart-navy focus:bg-white focus:border-smart-blue focus:outline-none transition"
                   />
                 </div>
               </div>
 
-              {/* Submit CTA */}
+              {/* Passenger Attendees Management Section */}
+              <div className="pt-2 border-t border-smart-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-smart-navy">
+                      Passenger Manifest ({passengers.length} / {maxSeats} Seats Reserved)
+                    </label>
+                    <span className="text-[10px] text-smart-muted">
+                      Add team members traveling on this vehicle.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddPassenger}
+                    disabled={passengers.length >= maxSeats}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 disabled:opacity-40 text-smart-blue text-xs font-bold transition border border-blue-200"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Add Attendee</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                  {passengers.map((passenger, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border border-smart-border bg-slate-50/70 space-y-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-smart-navy text-[11px]">
+                          {idx === 0 ? 'Primary Rider (Lead)' : `Attendee #${idx + 1}`}
+                        </span>
+                        {idx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePassenger(idx)}
+                            className="p-1 rounded text-smart-muted hover:text-smart-danger transition"
+                            title="Remove Attendee"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Employee Name"
+                          value={passenger.name}
+                          onChange={(e) => handleUpdatePassenger(idx, 'name', e.target.value)}
+                          className="w-full bg-white border border-smart-border rounded-lg px-2.5 py-1.5 text-xs text-smart-navy placeholder-slate-400 focus:border-smart-blue focus:outline-none"
+                        />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Emp Code (e.g. EMP-101)"
+                          value={passenger.employee_id}
+                          onChange={(e) => handleUpdatePassenger(idx, 'employee_id', e.target.value)}
+                          className="w-full bg-white border border-smart-border rounded-lg px-2.5 py-1.5 text-xs text-smart-navy font-mono uppercase placeholder-slate-400 focus:border-smart-blue focus:outline-none"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Mobile (+91...)"
+                          value={passenger.mobile || ''}
+                          onChange={(e) => handleUpdatePassenger(idx, 'mobile', e.target.value)}
+                          className="w-full bg-white border border-smart-border rounded-lg px-2.5 py-1.5 text-xs text-smart-navy placeholder-slate-400 focus:border-smart-blue focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -412,16 +534,18 @@ export default function SmartDriveDashboard() {
                   className="w-full py-3.5 rounded-xl smart-gradient-blue text-white font-black text-xs shadow-smart-lg hover:opacity-95 active:scale-98 transition flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>{submitting ? 'Reserving Asset...' : 'Confirm Vehicle Reservation'}</span>
+                  <span>
+                    {submitting
+                      ? 'Reserving Asset...'
+                      : `Confirm Reservation (${passengers.length} Seat${passengers.length > 1 ? 's' : ''})`}
+                  </span>
                 </button>
               </div>
             </form>
           </div>
 
-          {/* Right Side: 3D Vehicle Illustration & Mobility Feature Card (5 Cols) */}
+          {/* Right Side: Vehicle Showcase & Features (5 Cols) */}
           <div className="lg:col-span-5 space-y-5">
-            
-            {/* 3D Vehicle Showcase Card */}
             <div className="smart-glass-card p-6 relative overflow-hidden bg-gradient-to-br from-white via-white to-blue-50/40 border border-smart-border">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold tracking-widest text-smart-blue uppercase bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
@@ -430,37 +554,21 @@ export default function SmartDriveDashboard() {
                 <span className="text-xs font-black text-smart-navy">Gujarat Plant Pool</span>
               </div>
 
-              {/* 3D Style Vehicle Graphic */}
               <div className="my-6 relative flex items-center justify-center">
                 <div className="w-56 h-56 rounded-full bg-gradient-to-tr from-blue-100/60 to-cyan-100/40 absolute -z-10 blur-xl"></div>
-                
                 <svg className="w-full h-44 drop-shadow-2xl" viewBox="0 0 500 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  {/* Subtle Road Shadow */}
                   <ellipse cx="250" cy="205" rx="190" ry="16" fill="#142B4A" fillOpacity="0.12" />
-                  
-                  {/* Vehicle Body 3D Geometry */}
                   <path d="M70 170 C70 150 90 145 110 145 L150 145 L200 85 C215 70 235 65 260 65 L360 65 C390 65 410 80 425 105 L455 145 C475 145 490 155 490 170 C490 185 470 190 450 190 L90 190 C70 190 70 180 70 170 Z" fill="url(#paint0_linear)" />
-                  
-                  {/* Metallic Glaze / Highlight */}
                   <path d="M155 140 L198 88 C210 75 225 70 250 70 L350 70 C375 70 395 82 410 105 L445 140 Z" fill="#FFFFFF" fillOpacity="0.75" />
-                  
-                  {/* Tinted Aero Windows */}
                   <path d="M210 92 L260 92 L260 135 L165 135 Z" fill="#142B4A" fillOpacity="0.85" />
                   <path d="M275 92 L345 92 C365 92 380 102 392 120 L402 135 L275 135 Z" fill="#142B4A" fillOpacity="0.85" />
-                  
-                  {/* Modern LED Headlight Bar */}
                   <path d="M470 152 L485 152 C488 152 490 155 488 158 L475 165 Z" fill="#20C4D8" />
-                  <ellipse cx="480" cy="155" rx="12" ry="5" fill="#20C4D8" fillOpacity="0.4" />
-
-                  {/* 3D Alloy Wheels */}
                   <circle cx="160" cy="188" r="32" fill="#142B4A" />
                   <circle cx="160" cy="188" r="22" fill="#E2E8F0" />
                   <circle cx="160" cy="188" r="10" fill="#2878F0" />
-                  
                   <circle cx="390" cy="188" r="32" fill="#142B4A" />
                   <circle cx="390" cy="188" r="22" fill="#E2E8F0" />
                   <circle cx="390" cy="188" r="10" fill="#2878F0" />
-
                   <defs>
                     <linearGradient id="paint0_linear" x1="70" y1="65" x2="490" y2="190" gradientUnits="userSpaceOnUse">
                       <stop stopColor="#2878F0" />
@@ -471,7 +579,6 @@ export default function SmartDriveDashboard() {
                 </svg>
               </div>
 
-              {/* Specs Badge Strip */}
               <div className="grid grid-cols-3 gap-2 text-center pt-2 border-t border-smart-border">
                 <div className="p-2 rounded-xl bg-slate-50">
                   <span className="text-[10px] text-smart-muted uppercase font-bold block">Telemetry</span>
@@ -488,7 +595,6 @@ export default function SmartDriveDashboard() {
               </div>
             </div>
 
-            {/* Smart Mobility Assistance Card */}
             <div className="smart-glass-card p-5 bg-gradient-to-br from-smart-navy to-[#1a385f] text-white">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-smart-cyan">
@@ -507,12 +613,11 @@ export default function SmartDriveDashboard() {
                 </Link>
               </div>
             </div>
-
           </div>
 
         </div>
 
-        {/* Bottom Section: Upcoming Bookings & Recent History with "Book Again" */}
+        {/* Bottom Section: Previous Bookings */}
         <div className="smart-glass-card p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-smart-border pb-4">
             <div>
@@ -538,8 +643,6 @@ export default function SmartDriveDashboard() {
             <div className="divide-y divide-smart-border">
               {bookings.slice(0, 5).map((b) => (
                 <div key={b.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 p-2 rounded-xl transition">
-                  
-                  {/* Left: Route and Time */}
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-black text-smart-navy">{b.booking_reference}</span>
@@ -573,7 +676,6 @@ export default function SmartDriveDashboard() {
                     </div>
                   </div>
 
-                  {/* Right: Quick Action: Book Again */}
                   <div className="flex items-center gap-2">
                     {b.status === 'DISPATCHED' && (
                       <Link
@@ -594,7 +696,6 @@ export default function SmartDriveDashboard() {
                       <span>Book Again</span>
                     </button>
                   </div>
-
                 </div>
               ))}
             </div>
