@@ -50,24 +50,43 @@ function LiveTrackPageContent() {
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
       document.head.appendChild(link);
 
-      fetchTelemetry().then((data) => {
-        if (!data || !mapContainerRef.current) return;
+      // Default fallback to Gujarat Plant / Vadodara coordinates if live GPS telemetry is not yet active
+        const defaultLat = 22.3072;
+        const defaultLng = 73.1812;
 
-        const startLat = data.current_position.latitude;
-        const startLng = data.current_position.longitude;
-        const map = L.map(mapContainerRef.current).setView([startLat, startLng], 12);
-        mapInstanceRef.current = map;
+        if (!mapInstanceRef.current && mapContainerRef.current) {
+          const map = L.map(mapContainerRef.current, {
+            zoomControl: true,
+            attributionControl: false
+          }).setView([defaultLat, defaultLng], 12);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap &copy; CARTO'
-        }).addTo(map);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            subdomains: 'abcd',
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+          }).addTo(map);
 
-        const vehicleIcon = L.divIcon({
-          className: 'custom-vehicle-marker',
-          html: `<div style="background-color:#2563eb; color:white; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:3px solid white; box-shadow:0 4px 10px rgba(0,0,0,0.3); font-size:16px;">🚍</div>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17]
+          mapInstanceRef.current = map;
+
+          // Force invalidateSize after layout paint
+          setTimeout(() => {
+            map.invalidateSize();
+          }, 250);
+        }
+
+        fetchTelemetry().then((data) => {
+          if (!data || !mapInstanceRef.current) return;
+          const lat = data.current_position?.latitude || defaultLat;
+          const lng = data.current_position?.longitude || defaultLng;
+
+          mapInstanceRef.current.setView([lat, lng], 13);
+          
+          if (L.marker) {
+            L.marker([lat, lng])
+              .addTo(mapInstanceRef.current)
+              .bindPopup(`<b>${data.vehicle?.registration_number || 'Transit Vehicle'}</b><br>Speed: ${data.telemetry?.speed_kmh || 0} km/h`)
+              .openPopup();
+          }
         });
 
         markerRef.current = L.marker([startLat, startLng], { icon: vehicleIcon }).addTo(map);
@@ -130,7 +149,7 @@ function LiveTrackPageContent() {
       </header>
 
       <div className="relative flex-1 w-full h-[calc(100vh-140px)] min-h-[500px] overflow-hidden bg-slate-950">
-        <div ref={mapContainerRef} className="w-full h-full" />
+        <div ref={mapContainerRef} id="leaflet-track-map" className="absolute inset-0 w-full h-full z-0 bg-[#0f172a]" style={{ minHeight: "100vh", height: "100%", width: "100%" }}></div>
 
         {trackingData && (
           <div className="absolute top-4 left-4 z-1000 bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-xl backdrop-blur-md text-xs text-slate-200 max-w-xs space-y-2">
