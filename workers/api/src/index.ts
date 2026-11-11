@@ -892,7 +892,8 @@ export default {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
           employee_name: body.employee_name || 'Staff Employee',
-          employee_email: body.employee_email || 'staff@planttransit.com',
+          // Optional employee_email fallback
+          ...(body.employee_email ? { employee_email: body.employee_email } : {}),
           // Optional department fallback
           ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
@@ -1516,7 +1517,8 @@ export default {
           site_id: body.site_id,
           booking_reference: body.booking_reference || `BK-${Date.now().toString().slice(-6)}`,
           employee_name: body.employee_name || 'Staff Employee',
-          employee_email: body.employee_email || 'staff@planttransit.com',
+          // Optional employee_email fallback
+          ...(body.employee_email ? { employee_email: body.employee_email } : {}),
           // Optional department fallback
           ...(body.department ? { department: body.department } : {}),
           booking_type: body.booking_type || 'EXCLUSIVE',
