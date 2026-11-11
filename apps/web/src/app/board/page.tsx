@@ -119,9 +119,9 @@ export default function GateBoardingPage() {
       await fetchApi('/api/dispatch/verify-boarding', {
         method: 'POST',
         body: JSON.stringify({
-          booking_id: (typeof bookingId !== 'undefined' ? bookingId : '') || (typeof booking !== 'undefined' && booking ? booking.id : '') || (typeof bookingRef !== 'undefined' ? bookingRef : ''),
-          booking_reference: (typeof bookingRef !== 'undefined' ? bookingRef : '') || (typeof booking !== 'undefined' && booking ? (booking.booking_reference || booking.reference) : '') || (typeof bookingId !== 'undefined' ? bookingId : ''),
-          employee_id: String(typeof employeeId !== 'undefined' ? employeeId : (typeof empId !== 'undefined' ? empId : (typeof scanValue !== 'undefined' ? scanValue : ''))).trim()
+          booking_id: tripInfo?.id || bookingIdParam,
+          booking_reference: tripInfo?.booking_reference,
+          employee_id: targetEmpId
         })
       });
 

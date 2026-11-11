@@ -1,6 +1,6 @@
-import 'leaflet/dist/leaflet.css';
 'use client';
 
+import 'leaflet/dist/leaflet.css';
 import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -42,75 +42,73 @@ function LiveTrackPageContent() {
 
     let isMounted = true;
 
-    import('leaflet').then((L) => {
-      if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
+    const defaultLat = 22.3072;
+    const defaultLng = 73.1812;
 
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
+    const initializeMap = async () => {
+      try {
+        const L = await import('leaflet');
+        if (!isMounted || !mapContainerRef.current || mapInstanceRef.current) return;
 
-      // Default fallback to Gujarat Plant / Vadodara coordinates if live GPS telemetry is not yet active
-        const defaultLat = 22.3072;
-        const defaultLng = 73.1812;
+        const map = L.map(mapContainerRef.current, {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([defaultLat, defaultLng], 12);
 
-        if (!mapInstanceRef.current && mapContainerRef.current) {
-          const map = L.map(mapContainerRef.current, {
-            zoomControl: true,
-            attributionControl: false
-          }).setView([defaultLat, defaultLng], 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          maxZoom: 19,
+          subdomains: 'abcd',
+          attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
 
-          L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
-            attribution: '&copy; OpenStreetMap &copy; CARTO'
-          }).addTo(map);
+        mapInstanceRef.current = map;
+        let destinationMarker: import('leaflet').Marker | null = null;
 
-          mapInstanceRef.current = map;
+        const vehicleIcon = L.divIcon({
+          className: 'custom-vehicle-marker',
+          html: '<div style="background-color:#2563eb; color:white; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:3px solid white; box-shadow:0 4px 10px rgba(0,0,0,0.3); font-size:16px;">🚍</div>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+        markerRef.current = L.marker([defaultLat, defaultLng], { icon: vehicleIcon }).addTo(map);
 
-          // Force invalidateSize after layout paint
-          setTimeout(() => {
-            map.invalidateSize();
-          }, 250);
-        }
+        setTimeout(() => {
+          if (isMounted && mapInstanceRef.current === map) map.invalidateSize();
+        }, 250);
 
-        fetchTelemetry().then((data) => {
-          if (!data || !mapInstanceRef.current) return;
-          const lat = data.current_position?.latitude || defaultLat;
-          const lng = data.current_position?.longitude || defaultLng;
+        const updateTracking = async () => {
+          const data = await fetchTelemetry();
+          if (!isMounted || !data || mapInstanceRef.current !== map) return;
 
-          mapInstanceRef.current.setView([lat, lng], 13);
-          
-          if (L.marker) {
-            L.marker([lat, lng])
-              .addTo(mapInstanceRef.current)
-              .bindPopup(`<b>${data.vehicle?.registration_number || 'Transit Vehicle'}</b><br>Speed: ${data.telemetry?.speed_kmh || 0} km/h`)
-              .openPopup();
+          const latitude = data.current_position?.latitude ?? defaultLat;
+          const longitude = data.current_position?.longitude ?? defaultLng;
+          markerRef.current?.setLatLng([latitude, longitude]);
+          map.setView([latitude, longitude], 13);
+
+          const destination = data.destination?.coords;
+          if (!destinationMarker && destination && Number.isFinite(destination.lat) && Number.isFinite(destination.lng)) {
+            const destinationIcon = L.divIcon({
+              className: 'custom-dest-marker',
+              html: '<div style="background-color:#7c3aed; color:white; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid white; font-weight:bold; font-size:13px;">🏢</div>',
+              iconSize: [28, 28],
+              iconAnchor: [14, 14]
+            });
+            destinationMarker = L.marker([destination.lat, destination.lng], { icon: destinationIcon })
+              .addTo(map)
+              .bindPopup(`Destination: ${data.destination.name || 'Destination'}`);
           }
-        });
+        };
 
-        markerRef.current = L.marker([startLat, startLng], { icon: vehicleIcon }).addTo(map);
-
-        const destIcon = L.divIcon({
-          className: 'custom-dest-marker',
-          html: `<div style="background-color:#7c3aed; color:white; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; border:2px solid white; font-weight:bold; font-size:13px;">🏢</div>`,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14]
-        });
-
-        L.marker([data.destination.coords.lat, data.destination.coords.lng], { icon: destIcon })
-          .addTo(map)
-          .bindPopup(`<b>Destination</b><br/>${data.destination.name}`);
-      });
-    });
-
-    pollIntervalRef.current = setInterval(async () => {
-      const updated = await fetchTelemetry();
-      if (updated && markerRef.current && mapInstanceRef.current) {
-        const { latitude, longitude } = updated.current_position;
-        markerRef.current.setLatLng([latitude, longitude]);
+        await updateTracking();
+        if (isMounted) {
+          pollIntervalRef.current = setInterval(updateTracking, 5000);
+        }
+      } catch (error) {
+        console.error('Failed to initialize tracking map:', error);
       }
-    }, 5000);
+    };
+
+    void initializeMap();
 
     return () => {
       isMounted = false;
