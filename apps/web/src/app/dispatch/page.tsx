@@ -367,9 +367,9 @@ export default function DispatchPage() {
                   onChange={(e) => setSelectedVehicleId(e.target.value)}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
                 >
-                  <option value="">-- Choose Vehicle --</option>
+                  <option className="text-smart-navy bg-white py-1.5 font-medium" value="">-- Choose Vehicle --</option>
                   {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
+                    <option className="text-smart-navy bg-white py-1.5 font-medium" key={v.id} value={v.id}>
                       {v.registration_number} ({v.model}) - {v.seat_capacity} seats [{v.status}]
                     </option>
                   ))}
@@ -386,9 +386,9 @@ export default function DispatchPage() {
                   onChange={(e) => setSelectedDriverId(e.target.value)}
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
                 >
-                  <option value="">-- Choose Driver --</option>
+                  <option className="text-smart-navy bg-white py-1.5 font-medium" value="">-- Choose Driver --</option>
                   {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
+                    <option className="text-smart-navy bg-white py-1.5 font-medium" key={d.id} value={d.id}>
                       {d.name} ({d.mobile_number}) - [{d.duty_status}]
                     </option>
                   ))}

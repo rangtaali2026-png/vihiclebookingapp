@@ -31,3 +31,19 @@ body {
 .smart-gradient-navy {
   background: linear-gradient(135deg, #142B4A 0%, #1e3a63 100%);
 }
+
+/* Fix native select & option contrast across desktop/mobile */
+select {
+  color: #142B4A !important;
+  background-color: #FFFFFF !important;
+}
+
+select option {
+  color: #142B4A !important;
+  background-color: #FFFFFF !important;
+  font-weight: 600;
+}
+
+select option:disabled {
+  color: #94A3B8 !important;
+}
