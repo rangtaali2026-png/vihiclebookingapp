@@ -26,7 +26,25 @@ function getCorsHeaders(request: Request, env: Env): Headers {
     .map((allowedOrigin) => allowedOrigin.trim())
     .filter(Boolean);
 
-  if (origin && allowedOrigins.includes(origin)) {
+  const isAllowedOrigin = origin && allowedOrigins.some((allowedOrigin) => {
+    if (allowedOrigin === origin) return true;
+    if (!allowedOrigin.startsWith('https://*.')) return false;
+
+    const wildcardDomain = allowedOrigin.slice('https://*.'.length);
+    try {
+      const parsedOrigin = new URL(origin);
+      const subdomain = parsedOrigin.hostname.slice(0, -(wildcardDomain.length + 1));
+      return parsedOrigin.origin === origin
+        && parsedOrigin.protocol === 'https:'
+        && parsedOrigin.hostname.endsWith(`.${wildcardDomain}`)
+        && subdomain.length > 0
+        && !subdomain.includes('.');
+    } catch {
+      return false;
+    }
+  });
+
+  if (origin && isAllowedOrigin) {
     headers.set('Access-Control-Allow-Origin', origin);
   }
 

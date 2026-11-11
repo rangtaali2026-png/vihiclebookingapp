@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ENVIRONMENT = "production"
 FRONTEND_URL = "https://vehiclebookingapp.pages.dev"
-CORS_ORIGINS = "https://vehiclebookingapp.pages.dev,http://localhost:3000"
+CORS_ORIGINS = "https://vehiclebookingapp.pages.dev,https://*.vehiclebookingapp.pages.dev,http://localhost:3000"
 SUPABASE_URL = "https://uylsnmghommcvsxejyru.supabase.co"
 
 [[queues.producers]]
