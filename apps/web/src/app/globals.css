@@ -47,3 +47,12 @@ select option {
 select option:disabled {
   color: #94A3B8 !important;
 }
+
+/* Scanner modal inputs explicit contrast */
+input[type="text"], input[type="tel"], input[type="search"] {
+  color: #142B4A !important;
+}
+
+input::placeholder {
+  color: #94A3B8 !important;
+}
