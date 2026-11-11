@@ -329,8 +329,6 @@ export default {
               received: { bookingIdentifier: bookingIdentifier || null, empId: empId || null }
             }, 400, corsHeaders);
           }
-            return jsonResponse({ error: 'booking_id (or booking_reference) and employee_id are required' }, 400, corsHeaders);
-          }
 
           let query = supabase.from('bookings').select('*');
           if (body.booking_id) {
