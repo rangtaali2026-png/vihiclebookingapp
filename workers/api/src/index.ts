@@ -359,6 +359,158 @@ export default {
 
       
       
+      // ==========================================
+      // FLEET DRIVERS: GET & POST
+      // ==========================================
+      if (path === '/api/fleet/drivers') {
+        if (request.method === 'GET') {
+          const siteId = url.searchParams.get('site_id');
+          let query = supabase
+            .from('drivers')
+            .select('id, name, mobile_number, license_number, site_id')
+            .order('name', { ascending: true });
+
+          if (siteId) query = query.eq('site_id', siteId);
+
+          const { data: drivers, error: dErr } = await query;
+          if (dErr) throw dErr;
+
+          return jsonResponse({ success: true, drivers: drivers || [] }, 200, corsHeaders);
+        }
+
+        if (request.method === 'POST') {
+          try {
+            const body = await request.json() as any;
+            if (!body.name || !body.mobile_number) {
+              return jsonResponse({ error: 'name and mobile_number are required' }, 400, corsHeaders);
+            }
+
+            const driverPayload: any = {
+              site_id: body.site_id || '11111111-1111-1111-1111-111111111111',
+              name: String(body.name).trim(),
+              mobile_number: String(body.mobile_number).trim(),
+              license_number: body.license_number ? String(body.license_number).trim() : `DL-GJ-${Date.now().toString().slice(-6)}`
+            };
+
+            const { data: newDriver, error: insErr } = await supabase
+              .from('drivers')
+              .insert(driverPayload)
+              .select('id, name, mobile_number, license_number, site_id')
+              .single();
+
+            if (insErr) throw insErr;
+
+            return jsonResponse({
+              success: true,
+              message: 'Driver onboarded successfully',
+              driver: newDriver
+            }, 201, corsHeaders);
+          } catch (err: any) {
+            return jsonResponse({ error: err.message || 'Failed to create driver' }, 500, corsHeaders);
+          }
+        }
+      }
+
+      // ==========================================
+      // FLEET VEHICLES: ASSIGN DRIVER
+      // ==========================================
+      if (request.method === 'POST' && path === '/api/fleet/vehicles/assign-driver') {
+        try {
+          const body = await request.json() as any;
+          const { vehicle_id, driver_id, driver_mobile, driver_name } = body;
+
+          if (!vehicle_id) {
+            return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
+          }
+
+          if (driver_id && (driver_mobile || driver_name)) {
+            const driverUpdates: any = {};
+            if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
+            if (driver_name) driverUpdates.name = driver_name;
+
+            await supabase
+              .from('drivers')
+              .update(driverUpdates)
+              .eq('id', driver_id);
+          }
+
+          const { data: updatedVehicle, error: updateErr } = await supabase
+            .from('vehicles')
+            .update({
+              default_driver_id: driver_id || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', vehicle_id)
+            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number)')
+            .single();
+
+          if (updateErr) throw updateErr;
+
+          return jsonResponse({
+            success: true,
+            message: driver_id ? 'Driver successfully assigned' : 'Driver unassigned',
+            vehicle: updatedVehicle
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to assign driver' }, 500, corsHeaders);
+        }
+      }
+
+      // ==========================================
+      // FLEET VEHICLES: GET & POST
+      // ==========================================
+      if (path === '/api/fleet/vehicles') {
+        if (request.method === 'GET') {
+          const siteId = url.searchParams.get('site_id');
+          let query = supabase
+            .from('vehicles')
+            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number)')
+            .order('created_at', { ascending: false });
+
+          if (siteId) query = query.eq('site_id', siteId);
+
+          const { data: vehicles, error: vErr } = await query;
+          if (vErr) throw vErr;
+
+          return jsonResponse({ success: true, vehicles: vehicles || [] }, 200, corsHeaders);
+        }
+
+        if (request.method === 'POST') {
+          try {
+            const body = await request.json() as any;
+            if (!body.registration_number || !body.model) {
+              return jsonResponse({ error: 'registration_number and model are required' }, 400, corsHeaders);
+            }
+
+            const vehicleRecord: any = {
+              site_id: body.site_id || '11111111-1111-1111-1111-111111111111',
+              registration_number: String(body.registration_number).trim().toUpperCase(),
+              model: String(body.model).trim(),
+              category: body.category || 'SEDAN_4',
+              capacity: Number(body.capacity) || 4,
+              status: body.status || 'ACTIVE',
+              default_driver_id: body.default_driver_id || null
+            };
+
+            const { data: newVehicle, error: vInsErr } = await supabase
+              .from('vehicles')
+              .insert(vehicleRecord)
+              .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number)')
+              .single();
+
+            if (vInsErr) throw vInsErr;
+
+            return jsonResponse({
+              success: true,
+              message: 'Vehicle registered successfully',
+              vehicle: newVehicle
+            }, 201, corsHeaders);
+          } catch (err: any) {
+            return jsonResponse({ error: err.message || 'Failed to create vehicle' }, 500, corsHeaders);
+          }
+        }
+      }
+
       // GET /api/dispatch/:id/notifications
       if (request.method === 'GET' && path.startsWith('/api/dispatch/') && path.endsWith('/notifications')) {
         const bookingId = path.split('/')[3];
@@ -965,111 +1117,8 @@ export default {
       }
 
       // POST /api/fleet/vehicles/assign-driver
-      if (request.method === 'POST' && path === '/api/fleet/vehicles/assign-driver') {
-        try {
-          const body = await request.json() as any;
-          const { vehicle_id, driver_id, driver_mobile, driver_name } = body;
-
-          if (!vehicle_id) {
-            return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
-          }
-
-          // Optional: Update driver details (mobile or name) if updated inline
-          if (driver_id && (driver_mobile || driver_name)) {
-            const driverUpdates: any = { updated_at: new Date().toISOString() };
-            if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
-            if (driver_name) driverUpdates.name = driver_name;
-
-            await supabase
-              .from('drivers')
-              .update(driverUpdates)
-              .eq('id', driver_id);
-          }
-
-          // Update vehicle permanent default driver
-          const { data: updatedVehicle, error: updateErr } = await supabase
-            .from('vehicles')
-            .update({
-              default_driver_id: driver_id || null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', vehicle_id)
-            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number, status)')
-            .single();
-
-          if (updateErr) throw updateErr;
-
-          return jsonResponse({
-            success: true,
-            message: driver_id ? 'Driver successfully assigned to vehicle' : 'Driver unassigned from vehicle',
-            vehicle: updatedVehicle
-          }, 200, corsHeaders);
-        } catch (err: any) {
-          console.error('Driver assignment error:', err);
-          return jsonResponse({ error: err.message || 'Failed to update vehicle driver assignment' }, 500, corsHeaders);
-        }
-      }
-
-      // GET /api/fleet/vehicles/:id/active-trip
-      if (request.method === 'GET' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/active-trip')) {
-        const vehicleId = path.split('/')[4];
-
-        // 1. Fetch vehicle info
-        const { data: vehicle, error: vErr } = await supabase
-          .from('vehicles')
-          .select('id, registration_number, model, seat_capacity, qr_code_uuid')
-          .eq('id', vehicleId)
-          .single();
-
-        if (vErr || !vehicle) {
-          return jsonResponse({ error: 'Vehicle not found' }, 404, corsHeaders);
-        }
-
-        // 2. Fetch current DISPATCHED booking
-        const { data: activeBooking, error: bErr } = await supabase
-          .from('bookings')
-          .select('*, booking_passengers(*), drivers!bookings_allotted_driver_id_fkey(name, mobile_number)')
-          .eq('allotted_vehicle_id', vehicleId)
-          .eq('status', 'DISPATCHED')
-          .order('scheduled_start_time', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        return jsonResponse({
-          success: true,
-          vehicle,
-          active_booking: activeBooking || null,
-        }, 200, corsHeaders);
-      }
-
-      // POST /api/fleet/vehicles/:id/provision-qr
-      if (request.method === 'POST' && path.startsWith('/api/fleet/vehicles/') && path.endsWith('/provision-qr')) {
-        const vehicleId = path.split('/')[4];
-        const newQrUuid = crypto.randomUUID();
-        const qrUrl = `https://vehiclebookingapp.pages.dev/board/${vehicleId}`;
-
-        const { data: updated, error: updErr } = await supabase
-          .from('vehicles')
-          .update({
-            qr_code_uuid: newQrUuid,
-            qr_code_url: qrUrl,
-            qr_generated_at: new Date().toISOString(),
-            qr_version: 1
-          })
-          .eq('id', vehicleId)
-          .select()
-          .single();
-
-        if (updErr) throw updErr;
-
-        return jsonResponse({
-          success: true,
-          vehicle: updated,
-          qr_url: qrUrl
-        }, 200, corsHeaders);
-      }
-
       
+
       // GET /api/dispatch/:id/notifications
       if (request.method === 'GET' && path.startsWith('/api/dispatch/') && path.endsWith('/notifications')) {
         const bookingId = path.split('/')[3];
@@ -1671,415 +1720,6 @@ export default {
       }
 
       // POST /api/fleet/vehicles/assign-driver
-      if (request.method === 'POST' && path === '/api/fleet/vehicles/assign-driver') {
-        try {
-          const body = await request.json() as any;
-          const { vehicle_id, driver_id, driver_mobile, driver_name } = body;
+      
 
-          if (!vehicle_id) {
-            return jsonResponse({ error: 'vehicle_id is required' }, 400, corsHeaders);
-          }
-
-          // Optional: Update driver details (mobile or name) if updated inline
-          if (driver_id && (driver_mobile || driver_name)) {
-            const driverUpdates: any = { updated_at: new Date().toISOString() };
-            if (driver_mobile) driverUpdates.mobile_number = driver_mobile;
-            if (driver_name) driverUpdates.name = driver_name;
-
-            await supabase
-              .from('drivers')
-              .update(driverUpdates)
-              .eq('id', driver_id);
-          }
-
-          // Update vehicle permanent default driver
-          const { data: updatedVehicle, error: updateErr } = await supabase
-            .from('vehicles')
-            .update({
-              default_driver_id: driver_id || null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', vehicle_id)
-            .select('*, default_driver:drivers!default_driver_id(id, name, mobile_number, license_number, status)')
-            .single();
-
-          if (updateErr) throw updateErr;
-
-          return jsonResponse({
-            success: true,
-            message: driver_id ? 'Driver successfully assigned to vehicle' : 'Driver unassigned from vehicle',
-            vehicle: updatedVehicle
-          }, 200, corsHeaders);
-        } catch (err: any) {
-          console.error('Driver assignment error:', err);
-          return jsonResponse({ error: err.message || 'Failed to update vehicle driver assignment' }, 500, corsHeaders);
-        }
-      }
-
-      // GET /api/fleet/vehicles?site_id=...&category=...
-      if (request.method === 'GET' && path === '/api/fleet/vehicles') {
-        const siteId = url.searchParams.get('site_id');
-        const category = url.searchParams.get('category');
-
-        let query = supabase.from('vehicles').select('*').order('created_at', { ascending: false });
-        if (siteId) query = query.eq('site_id', siteId);
-        if (category) query = query.eq('category', category);
-
-        const { data, error } = await query;
-        if (error) throw error;
-        return jsonResponse({ success: true, vehicles: data }, 200, corsHeaders);
-      }
-
-      // POST /api/fleet/vehicles
-      if (request.method === 'POST' && path === '/api/fleet/vehicles') {
-        const body = await request.json() as Partial<Vehicle> & { total_capacity?: number };
-        const { site_id, registration_number, model, category } = body;
-
-        if (!site_id || !registration_number || !model || !category) {
-          return jsonResponse({ error: 'Missing required vehicle fields' }, 400, corsHeaders);
-        }
-
-        const capacityMap: Record<string, number> = {
-          'SEDAN_4': 4,
-          'MPV_6': 6,
-          'BUS_42': 42,
-          'BUS_52': 52,
-        };
-
-        const total_capacity = body.total_capacity || capacityMap[category] || 4;
-
-        const { data, error } = await supabase.from('vehicles').insert([{
-          site_id,
-          registration_number: registration_number.trim().toUpperCase(),
-          model,
-          category,
-          total_capacity,
-          status: 'AVAILABLE',
-          is_active: true,
-        }]).select().single();
-
-        if (error) throw error;
-        return jsonResponse({ success: true, vehicle: data }, 201, corsHeaders);
-      }
-
-      // --- BOOKING ENGINE ENDPOINTS ---
-
-      // POST /api/bookings/reserve (Atomic booking engine)
-      if (request.method === 'POST' && path === '/api/bookings/reserve') {
-        const payload = await request.json() as CreateBookingPayload;
-        const {
-          site_id,
-          requester_id,
-          booking_type,
-          target_category,
-          preferred_vehicle_id,
-          scheduled_start_time,
-          scheduled_end_time,
-          origin_location,
-          destination_location,
-          purpose,
-          passengers = [],
-        } = payload;
-
-        if (!site_id || !requester_id || !scheduled_start_time || !scheduled_end_time || !origin_location || !destination_location) {
-          return jsonResponse({ error: 'Missing required reservation fields' }, 400, corsHeaders);
-        }
-
-        const passenger_count = Math.max(passengers.length, 1);
-
-        // Call the atomic concurrency PL/pgSQL function created in Supabase
-        const { data: bookingId, error: rpcError } = await supabase.rpc('reserve_booking_transaction', {
-          p_site_id: site_id,
-          p_requester_id: requester_id,
-          p_booking_type: booking_type || 'PRIVATE',
-          p_target_category: target_category || 'SEDAN_4',
-          p_vehicle_id: preferred_vehicle_id || null,
-          p_start_time: scheduled_start_time,
-          p_end_time: scheduled_end_time,
-          p_origin: origin_location,
-          p_destination: destination_location,
-          p_purpose: purpose || 'Plant Transit',
-          p_passenger_count: passenger_count,
-        });
-
-        if (rpcError) {
-          return jsonResponse({ error: rpcError.message }, 409, corsHeaders);
-        }
-
-        // Insert passenger manifest if passengers were specified
-        if (passengers.length > 0) {
-          const passengerRows = passengers.map(p => ({
-            booking_id: bookingId,
-            employee_id: p.employee_id,
-            employee_name: p.employee_name,
-            department: p.department || 'Operations',
-            contact_number: p.contact_number,
-            pickup_point: p.pickup_point || origin_location,
-            drop_point: p.drop_point || destination_location,
-            seat_number: p.seat_number || null,
-          }));
-
-          const { error: passError } = await supabase.from('booking_passengers').insert(passengerRows);
-          if (passError) console.error('Error recording passengers manifest:', passError);
-        }
-
-        return jsonResponse({
-          success: true,
-          booking_id: bookingId,
-          message: 'Booking successfully reserved with concurrency guard',
-        }, 201, corsHeaders);
-      }
-
-      // POST /api/bookings/:id/rebook (Fast 1-Click Re-booking)
-      if (request.method === 'POST' && path.startsWith('/api/bookings/') && path.endsWith('/rebook')) {
-        const sourceBookingId = path.split('/')[3];
-        const { scheduled_start_time, scheduled_end_time } = await request.json() as {
-          scheduled_start_time: string;
-          scheduled_end_time: string;
-        };
-
-        if (!scheduled_start_time || !scheduled_end_time) {
-          return jsonResponse({ error: 'New scheduled_start_time and scheduled_end_time are required' }, 400, corsHeaders);
-        }
-
-        // Fetch original booking & passengers
-        const { data: original, error: fetchErr } = await supabase
-          .from('bookings')
-          .select('*, booking_passengers(*)')
-          .eq('id', sourceBookingId)
-          .single();
-
-        if (fetchErr || !original) {
-          return jsonResponse({ error: 'Original booking record not found' }, 404, corsHeaders);
-        }
-
-        // Reserve cloned itinerary
-        const { data: newBookingId, error: rpcError } = await supabase.rpc('reserve_booking_transaction', {
-          p_site_id: original.site_id,
-          p_requester_id: original.requester_id,
-          p_booking_type: original.booking_type,
-          p_target_category: original.target_category,
-          p_vehicle_id: original.allotted_vehicle_id,
-          p_start_time: scheduled_start_time,
-          p_end_time: scheduled_end_time,
-          p_origin: original.origin_location,
-          p_destination: original.destination_location,
-          p_purpose: `Rebooked from ${original.booking_reference}: ${original.purpose || ''}`,
-          p_passenger_count: original.passenger_count,
-        });
-
-        if (rpcError) {
-          return jsonResponse({ error: rpcError.message }, 409, corsHeaders);
-        }
-
-        // Link parent booking
-        await supabase.from('bookings').update({ parent_booking_id: original.id }).eq('id', newBookingId);
-
-        // Copy passenger roster
-        if (original.booking_passengers && original.booking_passengers.length > 0) {
-          const clonedPassengers = original.booking_passengers.map((p: any) => ({
-            booking_id: newBookingId,
-            employee_id: p.employee_id,
-            employee_name: p.employee_name,
-            department: p.department,
-            contact_number: p.contact_number,
-            pickup_point: p.pickup_point,
-            drop_point: p.drop_point,
-          }));
-          await supabase.from('booking_passengers').insert(clonedPassengers);
-        }
-
-        return jsonResponse({
-          success: true,
-          booking_id: newBookingId,
-          rebooked_from: original.booking_reference,
-        }, 201, corsHeaders);
-      }
-
-            // PATCH /api/bookings/:id/cancel
-      if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/cancel')) {
-        const bookingId = path.split('/')[3];
-        
-        // Fetch current status
-        const { data: booking, error: fetchErr } = await supabase
-          .from('bookings')
-          .select('id, status, booking_reference')
-          .eq('id', bookingId)
-          .single();
-
-        if (fetchErr || !booking) {
-          return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
-        }
-
-        if (booking.status === 'CANCELLED') {
-          return jsonResponse({ error: 'Booking is already cancelled' }, 400, corsHeaders);
-        }
-
-        if (['COMPLETED', 'DISPATCHED'].includes(booking.status)) {
-          return jsonResponse({ error: `Cannot cancel a trip that is already ${booking.status.toLowerCase()}` }, 400, corsHeaders);
-        }
-
-        const { data: updated, error: updateErr } = await supabase
-          .from('bookings')
-          .update({
-            status: 'CANCELLED',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', bookingId)
-          .select()
-          .single();
-
-        if (updateErr) throw updateErr;
-
-        return jsonResponse({
-          success: true,
-          booking: updated,
-          message: `Booking ${booking.booking_reference} has been cancelled successfully.`
-        }, 200, corsHeaders);
-      }
-
-      // GET /api/bookings?site_id=...&requester_id=...
-      if (request.method === 'GET' && path === '/api/bookings') {
-        const siteId = url.searchParams.get('site_id');
-        const requesterId = url.searchParams.get('requester_id');
-
-        let query = supabase
-          .from('bookings')
-          .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity, status), drivers!bookings_allotted_driver_id_fkey(id, name, mobile_number, license_number, duty_status), booking_passengers(*)')
-          .order('scheduled_start_time', { ascending: false })
-          .limit(50);
-
-        if (siteId) query = query.eq('site_id', siteId);
-        if (requesterId) query = query.eq('requester_id', requesterId);
-
-        const { data, error } = await query;
-        if (error) throw error;
-        return jsonResponse({ success: true, bookings: data }, 200, corsHeaders);
-      }
-
-      return jsonResponse({ error: 'Endpoint not found', path }, 404, corsHeaders);
-
-    } catch (err: any) {
-      console.error('API Error:', err);
-      return jsonResponse({ error: err.message || 'Internal Server Error' }, 500, corsHeaders);
-    }
-  },
-
-  // Cloudflare Queue Consumer for dispatch notifications
-  
-  // Cloudflare Scheduled Event (Cron Trigger for Shift Bus Runs & Reminders)
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-    console.log(`[Cron Trigger Executed] Scheduled time: ${new Date(event.scheduledTime).toISOString()}`);
-    const supabase = getSupabase(env);
-
-    try {
-      // 1. Determine target date (tomorrow's date or today depending on cron hour)
-      const targetDate = new Date().toISOString().split('T')[0];
-
-      // 2. Fetch all active plant sites
-      const { data: sites, error: siteErr } = await supabase
-        .from('sites')
-        .select('id, site_code, site_name')
-        .eq('is_active', true);
-
-      if (siteErr || !sites) {
-        console.error('Failed to load active sites for scheduled runs:', siteErr);
-        return;
-      }
-
-      for (const site of sites) {
-        // Fetch active shift routes with employee rosters
-        const { data: routes } = await supabase
-          .from('shift_routes')
-          .select('*, shift_roster_members(*)')
-          .eq('site_id', site.id)
-          .eq('is_active', true);
-
-        if (!routes || routes.length === 0) continue;
-
-        // Fetch available buses
-        const { data: availableBuses } = await supabase
-          .from('vehicles')
-          .select('*')
-          .eq('site_id', site.id)
-          .eq('status', 'ACTIVE');
-
-        let busPool = [...(availableBuses || [])];
-
-        for (const route of routes) {
-          const roster = route.shift_roster_members || [];
-          const manifest = roster.map((m: any) => ({
-            name: m.employee_name,
-            employee_id: m.employee_code,
-            department: m.department,
-            mobile: m.mobile_number,
-            pickup_point: m.pickup_point,
-            boarded: false
-          }));
-
-          const allottedVehicle = busPool.length > 0 ? busPool.shift() : null;
-          const refSuffix = Math.floor(1000 + Math.random() * 9000);
-          const bookingRef = `AUTO-${route.shift_code.replace('SHIFT_', '')}-${refSuffix}`;
-
-          // Insert automated shift trip run
-          const { data: createdTrip, error: tripErr } = await supabase
-            .from('bookings')
-            .insert({
-              site_id: site.id,
-              booking_reference: bookingRef,
-              employee_name: `Automated Roster: ${route.route_name}`,
-              employee_email: 'scheduler@company.com',
-              department: 'Manufacturing Commute',
-              booking_type: 'DAILY_SHIFT',
-              target_category: route.default_vehicle_category || 'BUS',
-              origin_location: route.origin_hub,
-              destination_location: route.destination_plant,
-              
-              passenger_count: Math.max(1, roster.length),
-              passenger_manifest: manifest,
-              status: allottedVehicle ? 'DISPATCHED' : 'PENDING',
-              allotted_vehicle_id: allottedVehicle ? allottedVehicle.id : null,
-              purpose: `Cron Auto Run: ${route.route_name}`
-            })
-            .select()
-            .single();
-
-          if (tripErr) {
-            console.error(`Error auto-generating trip for route ${route.id}:`, tripErr);
-            continue;
-          }
-
-          if (allottedVehicle) {
-            await supabase
-              .from('vehicles')
-              /* vehicle status remains ACTIVE during trip */.update({ updated_at: new Date().toISOString() })
-              .eq('id', allottedVehicle.id);
-          }
-
-          // Queue shift reminder notification if queue is bound
-          if ((env as any).NOTIFICATIONS_QUEUE && roster.length > 0) {
-            await (env as any).NOTIFICATIONS_QUEUE.send({
-              booking: createdTrip,
-              vehicle: allottedVehicle,
-              driver: null,
-              passengers: roster,
-              type: 'SHIFT_COMMUTE_REMINDER'
-            });
-          }
-        }
-      }
-      console.log('✓ Scheduled daily shift generator completed successfully.');
-    } catch (err) {
-      console.error('Fatal error in scheduled worker execution:', err);
-    }
-  },
-
-  async queue(batch: MessageBatch<any>, env: Env): Promise<void> {
-    const supabase = getSupabase(env);
-    for (const message of batch.messages) {
-      const { booking, vehicle, driver, passengers } = message.body;
-      await sendDispatchNotification(supabase, env, booking, vehicle, driver, passengers);
-      message.ack();
-    }
-  },
-};
+      
