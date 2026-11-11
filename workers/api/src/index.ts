@@ -181,8 +181,8 @@ export default {
       // --- FLEET INVENTORY ENDPOINTS ---
 
       
-      // GET /api/drivers?site_id=...
-      if (request.method === 'GET' && path === '/api/drivers') {
+      // GET /api/drivers (and /api/fleet/drivers alias)
+      if (request.method === 'GET' && (path === '/api/drivers' || path === '/api/fleet/drivers')) {
         const siteId = url.searchParams.get('site_id');
         let query = supabase.from('drivers').select('*').order('name');
         if (siteId) query = query.eq('site_id', siteId);
