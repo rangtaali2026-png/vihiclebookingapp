@@ -72,7 +72,7 @@ export async function syncPendingScans(): Promise<{ syncedCount: number; errors:
       await fetchApi('/api/dispatch/verify-boarding', {
         method: 'POST',
         body: JSON.stringify({
-          booking_id: item.booking_id,
+          booking_id: item.booking_id, booking_reference: item.booking_reference || item.booking_id,
           vehicle_id: item.vehicle_id,
           employee_id: item.employee_id,
           scanned_at: item.scanned_at,

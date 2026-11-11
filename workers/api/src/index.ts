@@ -331,10 +331,14 @@ export default {
           }
 
           let query = supabase.from('bookings').select('*');
-          if (body.booking_id) {
-            query = query.eq('id', body.booking_id);
+          
+          // Check if bookingIdentifier is a UUID (booking.id) or a booking reference string (e.g. BK-20261111-6650)
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingIdentifier);
+          
+          if (isUuid) {
+            query = query.eq('id', bookingIdentifier);
           } else {
-            query = query.eq('booking_reference', body.booking_reference);
+            query = query.eq('booking_reference', bookingIdentifier);
           }
 
           const { data: booking, error: fetchErr } = await query.single();
