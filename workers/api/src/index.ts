@@ -297,64 +297,94 @@ export default {
         }, 200, corsHeaders);
       }
 
-      // POST /api/dispatch/verify-boarding
+      // ==========================================
+      // DISPATCH: VERIFY PASSENGER BOARDING (Unified)
+      // ==========================================
       if (request.method === 'POST' && (path === '/api/dispatch/verify-boarding' || path === '/api/dispatch/verify-boarding/')) {
-        const body = await request.json() as { booking_id: string; employee_id: string };
-        const { booking_id, employee_id } = body;
+        try {
+          const body = await request.json() as any;
+          const bookingIdentifier = body.booking_id || body.booking_reference;
+          const empId = body.employee_id;
 
-        if (!booking_id || !employee_id) {
-          return jsonResponse({ error: 'booking_id and employee_id are required' }, 400, corsHeaders);
+          if (!bookingIdentifier || !empId) {
+            return jsonResponse({ error: 'booking_id (or booking_reference) and employee_id are required' }, 400, corsHeaders);
+          }
+
+          let query = supabase.from('bookings').select('*');
+          if (body.booking_id) {
+            query = query.eq('id', body.booking_id);
+          } else {
+            query = query.eq('booking_reference', body.booking_reference);
+          }
+
+          const { data: booking, error: fetchErr } = await query.single();
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking transit record not found' }, 404, corsHeaders);
+          }
+
+          let manifest: any[] = [];
+          if (Array.isArray(booking.passenger_manifest)) {
+            manifest = booking.passenger_manifest;
+          } else if (typeof booking.passenger_manifest === 'string') {
+            try {
+              manifest = JSON.parse(booking.passenger_manifest);
+            } catch (e) {
+              manifest = [];
+            }
+          }
+
+          const searchEmpId = String(empId).trim().toUpperCase();
+          let matchedIndex = manifest.findIndex((p: any) => 
+            String(p.employee_id || p.emp_id || '').trim().toUpperCase() === searchEmpId
+          );
+
+          let verifiedPassenger: any = null;
+
+          if (matchedIndex !== -1) {
+            manifest[matchedIndex].boarded = true;
+            manifest[matchedIndex].boarded_at = new Date().toISOString();
+            verifiedPassenger = manifest[matchedIndex];
+          } else {
+            const primaryEmpMatch = String(booking.employee_id || '').trim().toUpperCase() === searchEmpId ||
+                                   String(booking.employee_name || '').trim().toUpperCase() === searchEmpId;
+
+            if (primaryEmpMatch || manifest.length === 0) {
+              verifiedPassenger = {
+                employee_id: searchEmpId,
+                name: booking.employee_name || 'Primary Rider',
+                department: booking.department || 'Operations',
+                boarded: true,
+                boarded_at: new Date().toISOString()
+              };
+              manifest.push(verifiedPassenger);
+            } else {
+              return jsonResponse({
+                error: `Passenger record not found for employee ID: ${empId}`
+              }, 404, corsHeaders);
+            }
+          }
+
+          const { error: updateErr } = await supabase
+            .from('bookings')
+            .update({
+              passenger_manifest: manifest,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', booking.id);
+
+          if (updateErr) {
+            return jsonResponse({ error: updateErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `Passenger ${verifiedPassenger.name || verifiedPassenger.employee_id} verified and boarded successfully`,
+            passenger: verifiedPassenger,
+            manifest: manifest
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Internal verification error' }, 500, corsHeaders);
         }
-
-        const trimmedEmpId = employee_id.trim();
-
-        // 1. Check if passenger exists on manifest (case-insensitive)
-        const { data: passengers, error: findErr } = await supabase
-          .from('booking_passengers')
-          .select('*')
-          .eq('booking_id', booking_id)
-          .ilike('employee_id', trimmedEmpId);
-
-        if (findErr || !passengers || passengers.length === 0) {
-          return jsonResponse({ error: 'Passenger record not found for this trip' }, 404, corsHeaders);
-        }
-
-        const targetPassenger = passengers[0];
-
-        // 2. Mark passenger as boarded with schema fallback
-        let updated = null;
-        let { data, error: updErr } = await supabase
-          .from('booking_passengers')
-          .update({
-            is_boarded: true,
-            boarded_at: new Date().toISOString()
-          })
-          .eq('id', targetPassenger.id)
-          .select()
-          .single();
-
-        if (updErr && updErr.message.includes('boarded_at')) {
-          // Fallback if boarded_at column is missing in schema cache
-          const fallbackRes = await supabase
-            .from('booking_passengers')
-            .update({ is_boarded: true })
-            .eq('id', targetPassenger.id)
-            .select()
-            .single();
-          data = fallbackRes.data;
-          updErr = fallbackRes.error;
-        }
-
-        if (updErr) throw updErr;
-        updated = data;
-
-        if (updErr) throw updErr;
-
-        return jsonResponse({
-          success: true,
-          passenger: updated,
-          message: `Verified and boarded: ${updated.employee_name || updated.employee_id}`
-        }, 200, corsHeaders);
       }
 
 
@@ -1034,94 +1064,7 @@ export default {
         return jsonResponse({ success: true, bookings: bookings || [] }, 200, corsHeaders);
       }
 
-            // ==========================================
-      // DISPATCH: VERIFY PASSENGER BOARDING
-      // ==========================================
-      if (request.method === 'POST' && path === '/api/dispatch/verify-boarding') {
-        try {
-          const body = await request.json() as any;
-          const { booking_id, employee_id, booking_reference } = body;
-
-          if ((!booking_id && !booking_reference) || !employee_id) {
-            return jsonResponse({ error: 'booking_id and employee_id are required' }, 400, corsHeaders);
-          }
-
-          let query = supabase.from('bookings').select('*');
-          if (body.booking_id) {
-            query = query.eq('id', body.booking_id);
-          } else if (body.booking_reference) {
-            query = query.eq('booking_reference', body.booking_reference);
-          }
-
-          const { data: booking, error: fetchErr } = await query.single();
-          if (fetchErr || !booking) {
-            return jsonResponse({ error: 'Booking transit record not found' }, 404, corsHeaders);
-          }
-
-          let manifest: any[] = [];
-          if (Array.isArray(booking.passenger_manifest)) {
-            manifest = booking.passenger_manifest;
-          } else if (typeof booking.passenger_manifest === 'string') {
-            try {
-              manifest = JSON.parse(booking.passenger_manifest);
-            } catch (e) {
-              manifest = [];
-            }
-          }
-
-          const searchEmpId = String(employee_id).trim().toUpperCase();
-          let matchedIndex = manifest.findIndex((p: any) => 
-            String(p.employee_id || p.emp_id || '').trim().toUpperCase() === searchEmpId
-          );
-
-          let verifiedPassenger: any = null;
-
-          if (matchedIndex !== -1) {
-            manifest[matchedIndex].boarded = true;
-            manifest[matchedIndex].boarded_at = new Date().toISOString();
-            verifiedPassenger = manifest[matchedIndex];
-          } else {
-            const primaryEmpMatch = String(booking.employee_id || '').trim().toUpperCase() === searchEmpId ||
-                                   String(booking.employee_name || '').trim().toUpperCase() === searchEmpId;
-
-            if (primaryEmpMatch || manifest.length === 0) {
-              verifiedPassenger = {
-                employee_id: searchEmpId,
-                name: booking.employee_name || 'Primary Rider',
-                department: booking.department || 'Operations',
-                boarded: true,
-                boarded_at: new Date().toISOString()
-              };
-              manifest.push(verifiedPassenger);
-            } else {
-              return jsonResponse({
-                error: `Passenger record not found for employee ID: ${employee_id}`
-              }, 404, corsHeaders);
-            }
-          }
-
-          const { error: updateErr } = await supabase
-            .from('bookings')
-            .update({
-              passenger_manifest: manifest,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', booking.id);
-
-          if (updateErr) {
-            return jsonResponse({ error: updateErr.message }, 500, corsHeaders);
-          }
-
-          return jsonResponse({
-            success: true,
-            message: `Passenger ${verifiedPassenger.name || verifiedPassenger.employee_id} verified and boarded successfully`,
-            passenger: verifiedPassenger,
-            manifest: manifest
-          }, 200, corsHeaders);
-        } catch (err: any) {
-          return jsonResponse({ error: err.message || 'Internal verification error' }, 500, corsHeaders);
-        }
-      }
+            
 
       // POST /api/dispatch/create (and /api/fleet/bookings alias)
             if (request.method === 'POST' && (path === '/api/dispatch/create' || path === '/api/dispatch' || path === '/api/fleet/bookings')) {
