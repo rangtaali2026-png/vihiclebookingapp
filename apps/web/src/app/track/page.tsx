@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css';
 'use client';
 
 import React, { Suspense, useState, useEffect, useRef } from 'react';
@@ -128,7 +129,7 @@ function LiveTrackPageContent() {
         )}
       </header>
 
-      <div className="relative flex-1 w-full h-[60vh] bg-slate-950">
+      <div className="relative flex-1 w-full h-[calc(100vh-140px)] min-h-[500px] overflow-hidden bg-slate-950">
         <div ref={mapContainerRef} className="w-full h-full" />
 
         {trackingData && (
