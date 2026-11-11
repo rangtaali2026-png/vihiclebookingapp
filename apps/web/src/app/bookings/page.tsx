@@ -49,10 +49,10 @@ interface Booking {
 }
 
 const CATEGORY_CAPACITIES = {
-  SEDAN: 4,
-  SUV: 6,
-  VAN: 12,
-  BUS: 50,
+  SEDAN_4: 4,
+  SUV_6: 6,
+  VAN_12: 12,
+  BUS_50: 50,
 };
 
 export default function SmartDriveDashboard() {
@@ -60,7 +60,7 @@ export default function SmartDriveDashboard() {
 
   // Reservation Form State
   const [bookingType, setBookingType] = useState<'EXCLUSIVE' | 'SHARED'>('EXCLUSIVE');
-  const [category, setCategory] = useState<'SEDAN' | 'SUV' | 'VAN' | 'BUS'>('SEDAN');
+  const [category, setCategory] = useState<'SEDAN_4' | 'SUV_6' | 'VAN_12' | 'BUS_50'>('SEDAN_4');
   const [origin, setOrigin] = useState('Vadodara Chemical Complex Gate 1');
   const [destination, setDestination] = useState('Dahej Heavy Engineering Unit');
   const [pickupTime, setPickupTime] = useState(() => {
@@ -160,7 +160,7 @@ export default function SmartDriveDashboard() {
         employee_name: passengers[0]?.name || session?.fullName || 'Staff Employee',
         employee_email: session?.email || 'employee@planttransit.com',
         department: passengers[0]?.department || 'Plant Operations',
-        booking_type: bookingType === 'EXCLUSIVE' ? 'PRIVATE_DUTY' : 'SHARED_COMMUTE',
+        booking_type: bookingType === 'EXCLUSIVE' ? 'PRIVATE' : 'SHARED',
         target_category: category,
         origin_location: origin,
         destination_location: destination,
@@ -357,10 +357,10 @@ export default function SmartDriveDashboard() {
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { id: 'SEDAN', label: 'Executive Sedan', seats: '4 Seats' },
-                    { id: 'SUV', label: 'Premium SUV', seats: '6 Seats' },
-                    { id: 'VAN', label: 'Plant Van', seats: '12 Seats' },
-                    { id: 'BUS', label: 'Transit Bus', seats: '50 Seats' },
+                    { id: 'SEDAN_4', label: 'Executive Sedan', seats: '4 Seats' },
+                    { id: 'SUV_6', label: 'Premium SUV', seats: '6 Seats' },
+                    { id: 'VAN_12', label: 'Plant Van', seats: '12 Seats' },
+                    { id: 'BUS_50', label: 'Transit Bus', seats: '50 Seats' },
                   ].map((cat) => (
                     <button
                       key={cat.id}
