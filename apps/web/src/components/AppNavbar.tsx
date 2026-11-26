@@ -39,7 +39,7 @@ export default function AppNavbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-smart-border shadow-smart-sm">
+    <header className="sticky top-0 z-40 w-full mt-0 sticky  mt-0 top-0  z-40 bg-white/80 backdrop-blur-md border-b border-smart-border shadow-smart-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         
         {/* Left: Brand Identity */}
