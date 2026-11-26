@@ -2113,7 +2113,7 @@ export default {
             booking_reference: bookingRef,
             site_id: siteId,
             requester_id: body.requester_id || null,
-            booking_type: body.booking_type || (isOutstation ? 'OUTSTATION' : 'LOCAL'),
+            booking_type: body.booking_type || 'PRIVATE',
             target_category: body.vehicle_category || body.target_category || 'SEDAN_4',
             origin_location: originLoc,
             destination_location: destLoc,
@@ -2152,11 +2152,11 @@ export default {
             .single();
 
           // Fallback if some columns differ between legacy & GCD schema
-          if (insErr && insErr.message && insErr.message.includes('column')) {
+          if (insErr && insErr.message && (insErr.message.includes('column') || insErr.message.includes('booking_type'))) {
             const safePayload: any = {
               booking_reference: bookingRef,
               site_id: siteId,
-              booking_type: insertPayload.booking_type,
+              booking_type: 'PRIVATE',
               target_category: insertPayload.target_category,
               origin_location: originLoc,
               destination_location: destLoc,
