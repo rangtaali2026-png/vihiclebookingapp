@@ -2034,6 +2034,70 @@ export default {
         }, 201, corsHeaders);
       }
 
+      // PATCH /api/bookings/:id/approve (Grasim GCD Multi-Stage Approval)
+      if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/approve')) {
+        try {
+          const bookingId = path.split('/')[3];
+          const body = await request.json() as {
+            stage: 'DH' | 'FH' | 'UH' | 'FH_HR_ADMIN';
+            decision?: 'APPROVED' | 'REJECTED';
+            approver_name?: string;
+            remarks?: string;
+          };
+
+          const decision = body.decision || 'APPROVED';
+          const stage = body.stage || 'FH_HR_ADMIN';
+
+          const { data: booking, error: fetchErr } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .single();
+
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+          }
+
+          const updates: any = { updated_at: new Date().toISOString() };
+          if (stage === 'DH') updates.dh_approval_status = decision;
+          if (stage === 'FH') updates.fh_approval_status = decision;
+          if (stage === 'UH') updates.uh_approval_status = decision;
+          if (stage === 'FH_HR_ADMIN') updates.admin_hr_approval_status = decision;
+
+          if (decision === 'REJECTED') {
+            updates.status = 'REJECTED';
+          } else {
+            const dhOk = (stage === 'DH' ? decision : booking.dh_approval_status) === 'APPROVED';
+            const fhOk = !booking.is_outstation || (stage === 'FH' ? decision : booking.fh_approval_status) === 'APPROVED';
+            const uhOk = !booking.is_outstation || (stage === 'UH' ? decision : booking.uh_approval_status) === 'APPROVED';
+            const hrOk = (stage === 'FH_HR_ADMIN' ? decision : booking.admin_hr_approval_status) === 'APPROVED';
+
+            if (dhOk && fhOk && uhOk && hrOk) {
+              updates.status = 'APPROVED';
+            }
+          }
+
+          const { data: updated, error: upErr } = await supabase
+            .from('bookings')
+            .update(updates)
+            .eq('id', bookingId)
+            .select()
+            .single();
+
+          if (upErr) {
+            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `${stage} approval recorded as ${decision}`,
+            booking: updated
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Approval update failed' }, 500, corsHeaders);
+        }
+      }
+
       // PATCH /api/bookings/:id/cancel
       if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/cancel')) {
         const bookingId = path.split('/')[3];
