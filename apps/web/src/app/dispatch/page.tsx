@@ -147,7 +147,7 @@ export default function DispatchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 md:p-10">
+    <div className="min-h-screen bg-slate-50 px-6 pb-6 md:px-10 md:pb-10">
       <AppNavbar />
       <div className="max-w-7xl mx-auto space-y-8">
         
