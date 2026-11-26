@@ -2034,7 +2034,7 @@ export default {
         }, 201, corsHeaders);
       }
 
-      // PATCH /api/bookings/:id/approve (Grasim GCD Multi-Stage Approval)
+      // PATCH /api/bookings/:id/approve (Strict Sequential Grasim GCD Approval)
       if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/approve')) {
         try {
           const bookingId = path.split('/')[3];
@@ -2047,6 +2047,11 @@ export default {
 
           const decision = body.decision || 'APPROVED';
           const stage = body.stage || 'FH_HR_ADMIN';
+          const cleanRemark = body.remarks ? String(body.remarks).trim() : null;
+
+          if (decision === 'REJECTED' && !cleanRemark) {
+            return jsonResponse({ error: 'Please provide a remark explaining the rejection.' }, 400, corsHeaders);
+          }
 
           const { data: booking, error: fetchErr } = await supabase
             .from('bookings')
@@ -2058,10 +2063,30 @@ export default {
             return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
           }
 
-          const cleanRemark = body.remarks ? String(body.remarks).trim() : null;
+          // Block action if already rejected/cancelled at an earlier stage
+          if (
+            booking.status === 'REJECTED' ||
+            booking.status === 'CANCELLED' ||
+            booking.dh_approval_status === 'REJECTED' ||
+            booking.fh_approval_status === 'REJECTED' ||
+            booking.uh_approval_status === 'REJECTED' ||
+            booking.admin_hr_approval_status === 'REJECTED'
+          ) {
+            return jsonResponse({ error: 'This requisition has already been rejected and closed.' }, 400, corsHeaders);
+          }
 
-          if (decision === 'REJECTED' && !cleanRemark) {
-            return jsonResponse({ error: 'Please provide a remark explaining the rejection.' }, 400, corsHeaders);
+          const isOutstation = Boolean(
+            booking.is_outstation ||
+            (booking.destination_location && !String(booking.destination_location).toLowerCase().includes('bharuch')) ||
+            (booking.drop_location && !String(booking.drop_location).toLowerCase().includes('bharuch'))
+          );
+
+          // Enforce sequential prerequisite checks
+          if (stage === 'UH' && isOutstation && booking.fh_approval_status !== 'APPROVED') {
+            return jsonResponse({ error: 'Functional Head (FH) approval is required before Unit Head (UH) review.' }, 400, corsHeaders);
+          }
+          if (stage === 'FH_HR_ADMIN' && isOutstation && (booking.fh_approval_status !== 'APPROVED' || booking.uh_approval_status !== 'APPROVED')) {
+            return jsonResponse({ error: 'Both FH and UH approvals are required before FH-HR / Admin sign-off.' }, 400, corsHeaders);
           }
 
           const updates: any = { updated_at: new Date().toISOString() };
@@ -2069,6 +2094,9 @@ export default {
           if (stage === 'FH') {
             updates.fh_approval_status = decision;
             if (cleanRemark !== null) updates.fh_remarks = cleanRemark;
+            if (decision === 'APPROVED' && isOutstation && (!booking.uh_approval_status || booking.uh_approval_status === 'NOT_REQUIRED')) {
+              updates.uh_approval_status = 'PENDING';
+            }
           }
           if (stage === 'UH') {
             updates.uh_approval_status = decision;
@@ -2082,22 +2110,35 @@ export default {
           if (decision === 'REJECTED') {
             updates.status = 'REJECTED';
           } else {
-            const dhOk = (stage === 'DH' ? decision : booking.dh_approval_status) === 'APPROVED';
-            const fhOk = !booking.is_outstation || (stage === 'FH' ? decision : booking.fh_approval_status) === 'APPROVED';
-            const uhOk = !booking.is_outstation || (stage === 'UH' ? decision : booking.uh_approval_status) === 'APPROVED';
+            const fhOk = !isOutstation || (stage === 'FH' ? decision : booking.fh_approval_status) === 'APPROVED';
+            const uhOk = !isOutstation || (stage === 'UH' ? decision : booking.uh_approval_status) === 'APPROVED';
             const hrOk = (stage === 'FH_HR_ADMIN' ? decision : booking.admin_hr_approval_status) === 'APPROVED';
 
-            if (dhOk && fhOk && uhOk && hrOk) {
+            if (fhOk && uhOk && hrOk) {
               updates.status = 'APPROVED';
             }
           }
 
-          const { data: updated, error: upErr } = await supabase
+          let { data: updated, error: upErr } = await supabase
             .from('bookings')
             .update(updates)
             .eq('id', bookingId)
             .select()
             .single();
+
+          // Fallback if booking_status enum in DB does not include REJECTED/APPROVED
+          if (upErr && upErr.message && upErr.message.includes('booking_status')) {
+            const fallbackUpdates = { ...updates };
+            fallbackUpdates.status = decision === 'REJECTED' ? 'CANCELLED' : 'PENDING';
+            const retry = await supabase
+              .from('bookings')
+              .update(fallbackUpdates)
+              .eq('id', bookingId)
+              .select()
+              .single();
+            updated = retry.data;
+            upErr = retry.error;
+          }
 
           if (upErr) {
             return jsonResponse({ error: upErr.message }, 500, corsHeaders);
@@ -2112,6 +2153,7 @@ export default {
           return jsonResponse({ error: err.message || 'Approval update failed' }, 500, corsHeaders);
         }
       }
+
 
       // PATCH /api/bookings/:id/cancel
       if (request.method === 'PATCH' && path.startsWith('/api/bookings/') && path.endsWith('/cancel')) {

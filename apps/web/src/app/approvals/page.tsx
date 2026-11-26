@@ -99,6 +99,14 @@ export default function ExecutiveApprovalsPage() {
     router.push('/login');
   };
 
+  const isRejectedAnyStage = (b: any) =>
+    b.status === 'REJECTED' ||
+    b.status === 'CANCELLED' ||
+    b.dh_approval_status === 'REJECTED' ||
+    b.fh_approval_status === 'REJECTED' ||
+    b.uh_approval_status === 'REJECTED' ||
+    b.admin_hr_approval_status === 'REJECTED';
+
   const relevantBookings = useMemo(() => {
     const outstationList = bookings.filter(
       (b) =>
@@ -107,16 +115,28 @@ export default function ExecutiveApprovalsPage() {
         (b.drop_location && !String(b.drop_location).toLowerCase().includes('bharuch'))
     );
 
-    if (filterTab === 'ALL') return outstationList;
+    if (filterTab === 'ALL') {
+      // For UH, only show requests that FH did not reject (and either FH approved or already decided by UH)
+      if (approverStage === 'UH') {
+        return outstationList.filter(
+          (b) => b.fh_approval_status === 'APPROVED' || b.uh_approval_status === 'APPROVED' || b.uh_approval_status === 'REJECTED'
+        );
+      }
+      return outstationList;
+    }
 
     return outstationList.filter((b) => {
-      if (b.status === 'REJECTED' || b.status === 'CANCELLED' || b.status === 'COMPLETED') {
+      // Terminally rejected or completed requests never appear in pending queues
+      if (isRejectedAnyStage(b) || b.status === 'COMPLETED' || b.status === 'DISPATCHED') {
         return false;
       }
+
       if (approverStage === 'FH') {
         return !b.fh_approval_status || b.fh_approval_status === 'PENDING';
       }
-      return !b.uh_approval_status || b.uh_approval_status === 'PENDING';
+
+      // UH Stage: ONLY show after FH has explicitly APPROVED, and UH has not approved yet
+      return b.fh_approval_status === 'APPROVED' && b.uh_approval_status !== 'APPROVED';
     });
   }, [bookings, filterTab, approverStage]);
 
@@ -253,7 +273,7 @@ export default function ExecutiveApprovalsPage() {
                         ? b.fh_approval_status || 'PENDING'
                         : b.uh_approval_status || 'PENDING';
                     const isAlreadyDecided =
-                      currentStageStatus === 'APPROVED' || currentStageStatus === 'REJECTED';
+                      isRejectedAnyStage(b) || currentStageStatus === 'APPROVED' || currentStageStatus === 'REJECTED';
                     const recordedRemark =
                       approverStage === 'FH' ? b.fh_remarks : b.uh_remarks;
 
@@ -371,7 +391,7 @@ export default function ExecutiveApprovalsPage() {
                                 ) : (
                                   <XCircle className="w-3.5 h-3.5" />
                                 )}
-                                {approverStage} {currentStageStatus}
+                                {isRejectedAnyStage(b) && currentStageStatus !== 'REJECTED' ? 'REJECTED (CLOSED)' : `${approverStage} ${currentStageStatus}`}
                               </span>
                               {recordedRemark && (
                                 <p className="text-[11px] text-slate-500 italic">

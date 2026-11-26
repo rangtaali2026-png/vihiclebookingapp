@@ -82,6 +82,25 @@ export default function DispatchPage() {
     }
   };
 
+    const isOutstationApproved = (b: any) => {
+    if (
+      b.status === 'REJECTED' ||
+      b.status === 'CANCELLED' ||
+      b.fh_approval_status === 'REJECTED' ||
+      b.uh_approval_status === 'REJECTED' ||
+      b.admin_hr_approval_status === 'REJECTED'
+    ) {
+      return false;
+    }
+    const isOut = Boolean(
+      b.is_outstation ||
+      (b.destination_location && !String(b.destination_location).toLowerCase().includes('bharuch')) ||
+      (b.drop_location && !String(b.drop_location).toLowerCase().includes('bharuch'))
+    );
+    if (!isOut) return true;
+    return b.fh_approval_status === 'APPROVED' && b.uh_approval_status === 'APPROVED';
+  };
+
   const handleAdminApprovalDecision = async (bookingId: string, decision: 'APPROVED' | 'REJECTED') => {
     const remarkText = (adminRemarksMap[bookingId] || '').trim();
     if (decision === 'REJECTED' && !remarkText) {
