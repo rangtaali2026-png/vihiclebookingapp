@@ -16,6 +16,20 @@ type ManifestBooking = Booking & {
 };
 
 export default function DispatchPage() {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('user_profile');
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u.role === 'FH_APPROVER' || u.role === 'UH_APPROVER') {
+            window.location.replace('/approvals');
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);

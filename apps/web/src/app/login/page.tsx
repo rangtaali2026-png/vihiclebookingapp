@@ -37,7 +37,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
     pass: 'Approver@2026',
     role: 'FH_APPROVER',
     badge: 'Outstation Step 2',
-    redirect: '/dispatch'
+    redirect: '/approvals'
   },
   {
     title: 'UH Approval (Unit Head)',
@@ -45,7 +45,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
     pass: 'Approver@2026',
     role: 'UH_APPROVER',
     badge: 'Outstation Step 3',
-    redirect: '/dispatch'
+    redirect: '/approvals'
   },
   {
     title: 'FH-HR / Admin Approval',
@@ -90,6 +90,11 @@ export default function LoginPage() {
         localStorage.setItem('user_profile', JSON.stringify(res.user));
       }
 
+      const resolvedRole = res?.user?.role || '';
+      if (resolvedRole === 'FH_APPROVER' || resolvedRole === 'UH_APPROVER') {
+        router.push('/approvals');
+        return;
+      }
       router.push(res?.redirect || fallbackRedirect);
     } catch (err: any) {
       const matchedPreset = DEMO_CREDENTIALS.find(
