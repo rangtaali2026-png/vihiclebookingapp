@@ -477,6 +477,73 @@ export default {
       }
 
       // ==========================================
+      // SUPER ADMIN: DYNAMIC BOOKING FIELD CONFIG
+      // ==========================================
+      const DEFAULT_BOOKING_FIELDS = [
+        // Core Grasim Vehicle Request Form (GCD) Fields (Enabled by Default)
+        { key: 'requester_name', label: 'Requester Name', section: 'Requester Details', enabled: true, required: true, isExtra: false },
+        { key: 'employee_id', label: 'Employee ID & Sign', section: 'Requester Details', enabled: true, required: true, isExtra: false },
+        { key: 'department', label: 'Department', section: 'Requester Details', enabled: true, required: true, isExtra: false },
+        { key: 'contact_no', label: 'Contact No', section: 'Requester Details', enabled: true, required: true, isExtra: false },
+        { key: 'request_for', label: 'Request For (Self / Guest)', section: 'Trip Type & Count', enabled: true, required: true, isExtra: false },
+        { key: 'trip_type', label: 'Trip Mode (One Way / Round Trip)', section: 'Trip Type & Count', enabled: true, required: true, isExtra: false },
+        { key: 'passenger_count', label: 'Number Of Travelers', section: 'Trip Type & Count', enabled: true, required: true, isExtra: false },
+        { key: 'traveler_manifest', label: 'Traveler Details (Name, Code, Dept, Contact)', section: 'Traveler Detail', enabled: true, required: true, isExtra: false },
+        { key: 'pickup_location', label: 'Travel From', section: 'Route & Schedule', enabled: true, required: true, isExtra: false },
+        { key: 'drop_location', label: 'Travel Destination', section: 'Route & Schedule', enabled: true, required: true, isExtra: false },
+        { key: 'travel_date', label: 'Date Of Travel', section: 'Route & Schedule', enabled: true, required: true, isExtra: false },
+        { key: 'return_date', label: 'Return Date & Total No. of Days', section: 'Route & Schedule', enabled: true, required: false, isExtra: false },
+        { key: 'pickup_time', label: 'Pickup Time', section: 'Route & Schedule', enabled: true, required: true, isExtra: false },
+        { key: 'purpose_of_travel', label: 'Purpose Of Travel', section: 'Route & Schedule', enabled: true, required: true, isExtra: false },
+        { key: 'approval_workflow', label: 'Approval Matrix (Dept DH, FH, FH-HR/Admin, UH)', section: 'Approvals & Rules', enabled: true, required: true, isExtra: false },
+
+        // Previously Configured Extra Fields (Preserved — Toggleable ON/OFF by Super Admin)
+        { key: 'vehicle_category', label: 'Preferred Vehicle Category (Sedan / SUV / Bus)', section: 'Extra Configured Fields', enabled: false, required: false, isExtra: true },
+        { key: 'cost_center', label: 'Cost Center / SAP WBS Code', section: 'Extra Configured Fields', enabled: false, required: false, isExtra: true },
+        { key: 'pickup_gate_point', label: 'Specific Plant Gate / Pickup Sub-Point', section: 'Extra Configured Fields', enabled: false, required: false, isExtra: true },
+        { key: 'priority_flag', label: 'Urgent / VIP Escalation Flag', section: 'Extra Configured Fields', enabled: false, required: false, isExtra: true },
+        { key: 'whatsapp_notify', label: 'Automated WhatsApp Cab & Driver Alert', section: 'Extra Configured Fields', enabled: true, required: false, isExtra: true }
+      ];
+
+      if (path === '/api/config/booking-fields' && request.method === 'GET') {
+        try {
+          const { data } = await supabase
+            .from('system_settings')
+            .select('value')
+            .eq('key', 'booking_form_fields')
+            .maybeSingle();
+
+          const fields = data?.value ? (typeof data.value === 'string' ? JSON.parse(data.value) : data.value) : DEFAULT_BOOKING_FIELDS;
+          return jsonResponse({ success: true, fields }, 200, corsHeaders);
+        } catch (_err) {
+          return jsonResponse({ success: true, fields: DEFAULT_BOOKING_FIELDS }, 200, corsHeaders);
+        }
+      }
+
+      if (path === '/api/config/booking-fields' && (request.method === 'PUT' || request.method === 'POST')) {
+        try {
+          const body = await request.json() as any;
+          const fields = body.fields || DEFAULT_BOOKING_FIELDS;
+
+          const { error: upsertErr } = await supabase
+            .from('system_settings')
+            .upsert({
+              key: 'booking_form_fields',
+              value: fields,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+          if (upsertErr) {
+            return jsonResponse({ error: upsertErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({ success: true, message: 'Form field configuration saved', fields }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to save field configuration' }, 500, corsHeaders);
+        }
+      }
+
+      // ==========================================
       // FLEET DRIVERS: GET & POST
       // ==========================================
       if (path === '/api/fleet/drivers') {

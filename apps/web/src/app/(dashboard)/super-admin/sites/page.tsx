@@ -1431,6 +1431,89 @@ export default function SuperAdminSitesPage() {
         </div>
       )}
 
+    
+      {activeTab === 'fields' && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+            <div>
+              <h2 className="text-base font-black text-slate-900">Vehicle Requisition Form Field Governance</h2>
+              <p className="text-xs text-slate-500">
+                Toggle Grasim GCD Vehicle Request Form fields or previously configured extra fields ON/OFF without deleting schema logic.
+              </p>
+            </div>
+            <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              {savingFields ? 'Saving changes...' : `${formFields.filter((f) => f.enabled).length} of ${formFields.length} Fields Active`}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 bg-slate-50">
+                  <th className="py-3 px-4">Form Field Label</th>
+                  <th className="py-3 px-4">Section</th>
+                  <th className="py-3 px-4">Origin</th>
+                  <th className="py-3 px-4 text-center">Mandatory</th>
+                  <th className="py-3 px-4 text-right">Visible (ON / OFF)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {formFields.map((field) => (
+                  <tr key={field.key} className="hover:bg-slate-50/80 transition">
+                    <td className="py-3 px-4 font-bold text-slate-900">
+                      {field.label}
+                      <span className="block font-mono text-[10px] text-slate-400">{field.key}</span>
+                    </td>
+                    <td className="py-3 px-4 text-slate-600 font-semibold">{field.section}</td>
+                    <td className="py-3 px-4">
+                      {field.isExtra ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                          Extra Configured
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Grasim GCD Standard
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        type="button"
+                        disabled={!field.enabled}
+                        onClick={() => handleToggleFieldState(field.key, 'required')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                          field.required && field.enabled
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-400 border-slate-200'
+                        }`}
+                      >
+                        {field.required ? 'Required' : 'Optional'}
+                      </button>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFieldState(field.key, 'enabled')}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                          field.enabled ? 'bg-blue-600' : 'bg-slate-300'
+                        }`}
+                        title={field.enabled ? 'Disable Field' : 'Enable Field'}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                            field.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
