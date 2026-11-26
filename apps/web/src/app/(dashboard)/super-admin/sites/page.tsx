@@ -3,40 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import AppNavbar from '@/components/AppNavbar';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Building2,
-  KeyRound,
-  Car,
-  Wifi,
-  WifiOff,
-  Search,
-  Bell,
-  Plus,
-  Copy,
-  Check,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  ShieldAlert,
-  Download,
-  Filter,
-  CheckCircle2,
-  Clock,
-  MoreVertical,
-  Activity,
-  Layers,
-  ChevronRight,
-  TrendingUp,
-  MapPin,
-  ExternalLink,
-  Lock,
-  Radio,
-  SlidersHorizontal,
-  Calendar,
-  X,
-  UserCheck,
-  Power
-, Edit2, Trash2, Wrench, X } from 'lucide-react';
+import { Building2, KeyRound, Car, Wifi, WifiOff, Search, Bell, Plus, Copy, Check, Eye, EyeOff, RefreshCw, ShieldAlert, Download, Filter, CheckCircle2, Clock, MoreVertical, Activity, Layers, ChevronRight, TrendingUp, MapPin, ExternalLink, Lock, Radio, SlidersHorizontal, Calendar, X, UserCheck, Power, Edit2, Trash2, Wrench } from 'lucide-react';
 
 // ============================================================================
 // 1. TYPESCRIPT DATA CONTRACTS
@@ -287,6 +254,7 @@ export default function SuperAdminSitesPage() {
   const [plants, setPlants] = useState<PlantSite[]>(MOCK_PLANTS);
   const [gateways, setGateways] = useState<GatewaySecret[]>(MOCK_GATEWAY_SECRETS);
   const [selectedPlant, setSelectedPlant] = useState<PlantSite | null>(MOCK_PLANTS[0]);
+  const [editingSite, setEditingSite] = useState<PlantSite | null>(null);
 
   // Modals
   const [isNewPlantModalOpen, setIsNewPlantModalOpen] = useState(false);
@@ -378,6 +346,16 @@ export default function SuperAdminSitesPage() {
       autoAllotment: true,
       requireApproval: true,
     });
+  };
+
+  const handleSaveSiteEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSite) return;
+
+    setPlants((prev) => prev.map((plant) => plant.id === editingSite.id ? editingSite : plant));
+    setSelectedPlant((current) => current?.id === editingSite.id ? editingSite : current);
+    setEditingSite(null);
+    showToast(`Plant ${editingSite.siteCode} updated successfully.`);
   };
 
   // Rotate Secret Handler
@@ -734,6 +712,16 @@ export default function SuperAdminSitesPage() {
                             </td>
 
                             <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSite(plant);
+                                }}
+                                aria-label={`Edit ${plant.siteName}`}
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-smart-navy transition mr-1"
+                              >
+                                <Edit2 className="w-4 h-4 text-smart-blue" />
+                              </button>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1362,8 +1350,8 @@ export default function SuperAdminSitesPage() {
                 <input
                   type="text"
                   required
-                  value={editingSite.name || ''}
-                  onChange={(e) => setEditingSite({ ...editingSite, name: e.target.value })}
+                  value={editingSite.siteName}
+                  onChange={(e) => setEditingSite({ ...editingSite, siteName: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-semibold"
                 />
               </div>
@@ -1373,8 +1361,8 @@ export default function SuperAdminSitesPage() {
                 <input
                   type="text"
                   required
-                  value={editingSite.code || ''}
-                  onChange={(e) => setEditingSite({ ...editingSite, code: e.target.value.toUpperCase() })}
+                  value={editingSite.siteCode}
+                  onChange={(e) => setEditingSite({ ...editingSite, siteCode: e.target.value.toUpperCase() })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-slate-900 font-bold"
                 />
               </div>
@@ -1382,12 +1370,13 @@ export default function SuperAdminSitesPage() {
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Operational Status</label>
                 <select
-                  value={editingSite.status || 'ACTIVE'}
-                  onChange={(e) => setEditingSite({ ...editingSite, status: e.target.value })}
+                  value={editingSite.status}
+                  onChange={(e) => setEditingSite({ ...editingSite, status: e.target.value as SiteStatus })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-bold bg-white"
                 >
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="MAINTENANCE">MAINTENANCE</option>
+                  <option value="OFFLINE">OFFLINE</option>
                 </select>
               </div>
 
@@ -1396,8 +1385,8 @@ export default function SuperAdminSitesPage() {
                 <input
                   type="text"
                   required
-                  value={editingSite.location || ''}
-                  onChange={(e) => setEditingSite({ ...editingSite, location: e.target.value })}
+                  value={editingSite.locationCity}
+                  onChange={(e) => setEditingSite({ ...editingSite, locationCity: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-medium"
                 />
               </div>
@@ -1406,8 +1395,8 @@ export default function SuperAdminSitesPage() {
                 <label className="block font-bold text-slate-700 mb-1">Site Manager</label>
                 <input
                   type="text"
-                  value={editingSite.manager_name || ''}
-                  onChange={(e) => setEditingSite({ ...editingSite, manager_name: e.target.value })}
+                  value={editingSite.managerName}
+                  onChange={(e) => setEditingSite({ ...editingSite, managerName: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-medium"
                 />
               </div>
@@ -1416,8 +1405,8 @@ export default function SuperAdminSitesPage() {
                 <label className="block font-bold text-slate-700 mb-1">Manager Phone</label>
                 <input
                   type="text"
-                  value={editingSite.manager_phone || ''}
-                  onChange={(e) => setEditingSite({ ...editingSite, manager_phone: e.target.value })}
+                  value={editingSite.managerPhone}
+                  onChange={(e) => setEditingSite({ ...editingSite, managerPhone: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-slate-900 font-medium"
                 />
               </div>
@@ -1433,10 +1422,9 @@ export default function SuperAdminSitesPage() {
               </button>
               <button
                 type="submit"
-                disabled={isSavingSite}
                 className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSavingSite ? 'Saving...' : 'Save Changes'}
+                Save Changes
               </button>
             </div>
           </form>
