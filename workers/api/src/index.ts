@@ -2074,6 +2074,136 @@ export default {
         }, 200, corsHeaders);
       }
 
+      // POST /api/bookings (Grasim GCD Vehicle Request Form)
+      if (request.method === 'POST' && (path === '/api/bookings' || path === '/api/bookings/')) {
+        try {
+          const body = await request.json() as any;
+
+          const now = new Date();
+          const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+          const randPart = Math.floor(1000 + Math.random() * 9000);
+          const bookingRef = body.booking_reference || `BK-${datePart}-${randPart}`;
+
+          const travelDate = body.travel_date || now.toISOString().slice(0, 10);
+          const pickupTime = body.pickup_time || '09:00';
+          const scheduledStart = body.scheduled_start_time || `${travelDate}T${pickupTime}:00+05:30`;
+          const returnDate = body.return_date || travelDate;
+          const scheduledEnd = body.scheduled_end_time || `${returnDate}T18:00:00+05:30`;
+
+          const originLoc = body.pickup_location || body.origin_location || 'Bharuch Plant Gate 1';
+          const destLoc = body.drop_location || body.destination_location || '';
+          const isOutstation = Boolean(
+            body.is_outstation !== undefined
+              ? body.is_outstation
+              : (destLoc && !String(destLoc).toLowerCase().includes('bharuch'))
+          );
+
+          // Resolve default site_id if not passed by the employee form
+          let siteId = body.site_id || null;
+          if (!siteId) {
+            const { data: defaultSite } = await supabase
+              .from('sites')
+              .select('id')
+              .limit(1)
+              .maybeSingle();
+            siteId = defaultSite?.id || null;
+          }
+
+          const insertPayload: any = {
+            booking_reference: bookingRef,
+            site_id: siteId,
+            requester_id: body.requester_id || null,
+            booking_type: body.booking_type || (isOutstation ? 'OUTSTATION' : 'LOCAL'),
+            target_category: body.vehicle_category || body.target_category || 'SEDAN_4',
+            origin_location: originLoc,
+            destination_location: destLoc,
+            scheduled_start_time: scheduledStart,
+            scheduled_end_time: scheduledEnd,
+            purpose: body.purpose_of_travel || body.purpose || '',
+            passenger_count: Number(body.passenger_count) || 1,
+            status: 'PENDING',
+            employee_name: body.employee_name || body.requester_name || 'Employee',
+            employee_id: String(body.employee_id || 'EMP-000').trim().toUpperCase(),
+            department: body.department || 'General',
+            mobile: body.mobile || body.contact_no || '',
+            pickup_location: originLoc,
+            drop_location: destLoc,
+            travel_date: travelDate,
+            pickup_time: pickupTime,
+            passenger_manifest: Array.isArray(body.passenger_manifest) ? body.passenger_manifest : [],
+            request_for: body.request_for || 'Self',
+            trip_type: body.trip_type || 'One Way Trip',
+            return_date: returnDate,
+            total_days: Number(body.total_days) || 1,
+            purpose_of_travel: body.purpose_of_travel || body.purpose || '',
+            is_outstation: isOutstation,
+            dh_approval_status: 'PENDING',
+            fh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
+            uh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
+            admin_hr_approval_status: 'PENDING',
+            cost_center: body.cost_center || null,
+            priority_flag: Boolean(body.priority_flag)
+          };
+
+          let { data: created, error: insErr } = await supabase
+            .from('bookings')
+            .insert(insertPayload)
+            .select()
+            .single();
+
+          // Fallback if some columns differ between legacy & GCD schema
+          if (insErr && insErr.message && insErr.message.includes('column')) {
+            const safePayload: any = {
+              booking_reference: bookingRef,
+              site_id: siteId,
+              booking_type: insertPayload.booking_type,
+              target_category: insertPayload.target_category,
+              origin_location: originLoc,
+              destination_location: destLoc,
+              scheduled_start_time: scheduledStart,
+              scheduled_end_time: scheduledEnd,
+              purpose: insertPayload.purpose,
+              passenger_count: insertPayload.passenger_count,
+              status: 'PENDING'
+            };
+            const retry = await supabase
+              .from('bookings')
+              .insert(safePayload)
+              .select()
+              .single();
+            created = retry.data;
+            insErr = retry.error;
+          }
+
+          if (insErr) {
+            return jsonResponse({ error: insErr.message }, 500, corsHeaders);
+          }
+
+          // Record travelers in booking_passengers table if manifest provided
+          if (created?.id && Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0) {
+            const rows = body.passenger_manifest.map((p: any) => ({
+              booking_id: created.id,
+              passenger_name: p.name || insertPayload.employee_name,
+              employee_code: p.employee_id || insertPayload.employee_id,
+              department: p.department || insertPayload.department,
+              mobile_number: p.mobile || insertPayload.mobile,
+              pickup_point: originLoc,
+              drop_point: destLoc
+            }));
+            await supabase.from('booking_passengers').insert(rows);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: 'Vehicle Request submitted successfully',
+            booking_reference: bookingRef,
+            booking: created
+          }, 201, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to submit vehicle request' }, 500, corsHeaders);
+        }
+      }
+
       // GET /api/bookings?site_id=...&requester_id=...
       if (request.method === 'GET' && path === '/api/bookings') {
         const siteId = url.searchParams.get('site_id');
