@@ -58,7 +58,7 @@ const DEMO_ACCOUNTS: DemoAccount[] = [
   },
   {
     role: 'FLEET_ADMIN',
-    title: 'Fleet Controller (Dahej)',
+    title: 'Ride Controller (Dahej)',
     name: 'Vikram Mehta',
     email: 'fleet.dahej@planttransit.com',
     pass: 'Fleet@2026',
