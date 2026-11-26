@@ -45,7 +45,7 @@ export default function DispatchPage() {
       setLoading(true);
       const [bookingsRes, vehiclesRes, driversRes] = await Promise.all([
         fetchApi<{ success: boolean; bookings: Booking[] }>('/api/bookings'),
-        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/ride/vehicles'),
+        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/fleet/vehicles'),
         fetchApi<{ success: boolean; drivers: Driver[] }>('/api/drivers?site_id=11111111-1111-1111-1111-111111111111'),
       ]);
 
