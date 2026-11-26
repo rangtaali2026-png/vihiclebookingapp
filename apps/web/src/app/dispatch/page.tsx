@@ -7,7 +7,13 @@ import { fetchApi } from '@/lib/api';
 import type { Booking, Vehicle, Driver, BookingPassenger } from '@plant-transit/shared-types';
 import { Users, X } from 'lucide-react';
 
-type ManifestBooking = Booking & {
+type DispatchBooking = Booking & {
+  fh_remarks?: string | null;
+  uh_remarks?: string | null;
+  admin_hr_remarks?: string | null;
+};
+
+type ManifestBooking = DispatchBooking & {
   passenger_manifest?: BookingPassenger[] | string | null;
   employee_id?: string | null;
   employee_name?: string | null;
@@ -16,6 +22,9 @@ type ManifestBooking = Booking & {
 };
 
 export default function DispatchPage() {
+  const [adminRemarksMap, setAdminRemarksMap] = useState<Record<string, string>>({});
+  const [processingApprovalId, setProcessingApprovalId] = useState<string | null>(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -30,7 +39,7 @@ export default function DispatchPage() {
     }
   }, []);
 
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<DispatchBooking[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,7 +67,7 @@ export default function DispatchPage() {
     try {
       setLoading(true);
       const [bookingsRes, vehiclesRes, driversRes] = await Promise.all([
-        fetchApi<{ success: boolean; bookings: Booking[] }>('/api/bookings'),
+        fetchApi<{ success: boolean; bookings: DispatchBooking[] }>('/api/bookings'),
         fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/fleet/vehicles'),
         fetchApi<{ success: boolean; drivers: Driver[] }>('/api/drivers?site_id=11111111-1111-1111-1111-111111111111'),
       ]);
@@ -70,6 +79,36 @@ export default function DispatchPage() {
       console.error('Failed to load dispatch data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAdminApprovalDecision = async (bookingId: string, decision: 'APPROVED' | 'REJECTED') => {
+    const remarkText = (adminRemarksMap[bookingId] || '').trim();
+    if (decision === 'REJECTED' && !remarkText) {
+      alert('Please enter a remark before rejecting this requisition.');
+      return;
+    }
+    setProcessingApprovalId(bookingId);
+    try {
+      await fetchApi(`/api/bookings/${bookingId}/approve`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          stage: 'FH_HR_ADMIN',
+          decision,
+          approver_name: 'FH-HR / Admin',
+          remarks: remarkText
+        })
+      });
+      setAdminRemarksMap((prev) => {
+        const next = { ...prev };
+        delete next[bookingId];
+        return next;
+      });
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to record FH-HR / Admin decision');
+    } finally {
+      setProcessingApprovalId(null);
     }
   };
 
@@ -313,6 +352,52 @@ export default function DispatchPage() {
                           >
                             Assign & Dispatch
                           </button>
+                        )}
+                        {/* FH-HR / Admin Approval & Remark Controls */}
+                        {(b.status === 'PENDING' || b.status === 'APPROVED') && (
+                          <div className="mt-2 pt-2 border-t border-slate-100 space-y-1.5 text-left">
+                            {(b.fh_remarks || b.uh_remarks) && (
+                              <div className="text-[10px] text-slate-500 space-y-0.5">
+                                {b.fh_remarks && <div><strong>FH Remark:</strong> {b.fh_remarks}</div>}
+                                {b.uh_remarks && <div><strong>UH Remark:</strong> {b.uh_remarks}</div>}
+                              </div>
+                            )}
+                            {b.admin_hr_remarks ? (
+                              <div className="text-[10px] text-emerald-700 font-semibold">
+                                <strong>HR/Admin Remark:</strong> {b.admin_hr_remarks}
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-1.5">
+                                <input
+                                  type="text"
+                                  value={adminRemarksMap[b.id] || ''}
+                                  onChange={(e) =>
+                                    setAdminRemarksMap((prev) => ({ ...prev, [b.id]: e.target.value }))
+                                  }
+                                  placeholder="FH-HR / Admin remark..."
+                                  className="w-full px-2 py-1 rounded border border-slate-300 text-[11px] text-slate-800 bg-white"
+                                />
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={processingApprovalId === b.id}
+                                    onClick={() => handleAdminApprovalDecision(b.id, 'APPROVED')}
+                                    className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold hover:bg-emerald-100"
+                                  >
+                                    Approve HR/Admin
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={processingApprovalId === b.id}
+                                    onClick={() => handleAdminApprovalDecision(b.id, 'REJECTED')}
+                                    className="px-2 py-1 rounded bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold hover:bg-rose-100"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                         <button
                           type="button"

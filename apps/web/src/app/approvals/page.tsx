@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
 import {
   ShieldCheck, CheckCircle2, XCircle, Clock, MapPin,
-  Users, Calendar, LogOut, RefreshCw, AlertTriangle, Car
+  Users, Calendar, LogOut, RefreshCw, AlertTriangle, Car, MessageSquare
 } from 'lucide-react';
 
 interface UserProfile {
@@ -21,6 +21,7 @@ export default function ExecutiveApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [filterTab, setFilterTab] = useState<'PENDING' | 'ALL'>('PENDING');
+  const [remarksMap, setRemarksMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -29,13 +30,12 @@ export default function ExecutiveApprovalsPage() {
         try {
           const parsed = JSON.parse(raw);
           setUser(parsed);
-          // Redirect Admin/Dispatcher roles to Dispatch Console
           if (parsed.role === 'FH_HR_ADMIN' || parsed.role === 'DISPATCHER') {
             router.replace('/dispatch');
             return;
           }
         } catch {
-          // ignore parse error
+          // ignore
         }
       }
     }
@@ -61,6 +61,12 @@ export default function ExecutiveApprovalsPage() {
       : 'Functional Head (FH) Approval Portal';
 
   const handleDecision = async (bookingId: string, decision: 'APPROVED' | 'REJECTED') => {
+    const remarkText = (remarksMap[bookingId] || '').trim();
+    if (decision === 'REJECTED' && !remarkText) {
+      alert('Please enter a rejection remark before rejecting this request.');
+      return;
+    }
+
     setProcessingId(bookingId);
     try {
       await fetchApi(`/api/bookings/${bookingId}/approve`, {
@@ -68,8 +74,14 @@ export default function ExecutiveApprovalsPage() {
         body: JSON.stringify({
           stage: approverStage,
           decision,
-          approver_name: user?.name || approverStage
+          approver_name: user?.name || approverStage,
+          remarks: remarkText
         })
+      });
+      setRemarksMap((prev) => {
+        const next = { ...prev };
+        delete next[bookingId];
+        return next;
       });
       await loadBookings();
     } catch (err: any) {
@@ -88,7 +100,6 @@ export default function ExecutiveApprovalsPage() {
   };
 
   const relevantBookings = useMemo(() => {
-    // Outstation trips (outside Bharuch) require mandatory FH & UH sign-off
     const outstationList = bookings.filter(
       (b) =>
         b.is_outstation ||
@@ -111,7 +122,6 @@ export default function ExecutiveApprovalsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
-      {/* Dedicated Executive Approver Top Header (No Fleet/Dispatch Links) */}
       <header className="sticky top-0 z-40 w-full bg-white border-b border-slate-200 px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -151,14 +161,13 @@ export default function ExecutiveApprovalsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        {/* Page Title & Policy Banner */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-black text-slate-900">
               Outstation Cab Requisition Approvals
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Review and authorize outstation travel requests (Vadodara, Surat, Ahmedabad, etc.) prior to Admin vehicle allotment.
+              Review outstation travel requests, record authorization remarks, and approve or reject prior to Admin allotment.
             </p>
           </div>
 
@@ -199,15 +208,13 @@ export default function ExecutiveApprovalsPage() {
           </div>
         </div>
 
-        {/* Governance Notice */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-900">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
-            <strong>Grasim GCD Authorization Policy:</strong> Functional Head (FH) and Unit Head (UH) approval is mandatory for all outstation travel outside Bharuch. Once approved, the request is automatically forwarded to the <strong>FH-HR / Admin Team</strong> for cab &amp; driver allotment.
+            <strong>Grasim GCD Authorization Policy:</strong> Functional Head (FH) and Unit Head (UH) approval is mandatory for all outstation travel outside Bharuch. Remarks entered below are logged on the requisition audit trail for the <strong>FH-HR / Admin Team</strong>.
           </div>
         </div>
 
-        {/* Requisitions Table */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
             <h2 className="text-sm font-black text-slate-900">
@@ -235,8 +242,8 @@ export default function ExecutiveApprovalsPage() {
                     <th className="py-3.5 px-5">Ref &amp; Requester</th>
                     <th className="py-3.5 px-4">Route &amp; Schedule</th>
                     <th className="py-3.5 px-4">Purpose &amp; Travelers</th>
-                    <th className="py-3.5 px-4">Approval Chain</th>
-                    <th className="py-3.5 px-5 text-right">Authorization Decision</th>
+                    <th className="py-3.5 px-4">Approval Chain &amp; Remarks</th>
+                    <th className="py-3.5 px-5 text-right w-80">Remark &amp; Authorization Decision</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
@@ -247,6 +254,8 @@ export default function ExecutiveApprovalsPage() {
                         : b.uh_approval_status || 'PENDING';
                     const isAlreadyDecided =
                       currentStageStatus === 'APPROVED' || currentStageStatus === 'REJECTED';
+                    const recordedRemark =
+                      approverStage === 'FH' ? b.fh_remarks : b.uh_remarks;
 
                     return (
                       <tr key={b.id} className="hover:bg-slate-50/70 transition">
@@ -295,7 +304,7 @@ export default function ExecutiveApprovalsPage() {
                           </span>
                         </td>
 
-                        <td className="py-4 px-4 align-top space-y-1 text-[11px]">
+                        <td className="py-4 px-4 align-top space-y-1.5 text-[11px]">
                           <div>
                             <span className="text-slate-400 font-semibold">FH Sign-Off: </span>
                             <span
@@ -309,6 +318,11 @@ export default function ExecutiveApprovalsPage() {
                             >
                               {b.fh_approval_status || 'PENDING'}
                             </span>
+                            {b.fh_remarks && (
+                              <span className="block text-[10px] italic text-slate-500">
+                                &ldquo;{b.fh_remarks}&rdquo;
+                              </span>
+                            )}
                           </div>
                           <div>
                             <span className="text-slate-400 font-semibold">UH Sign-Off: </span>
@@ -323,51 +337,82 @@ export default function ExecutiveApprovalsPage() {
                             >
                               {b.uh_approval_status || 'PENDING'}
                             </span>
+                            {b.uh_remarks && (
+                              <span className="block text-[10px] italic text-slate-500">
+                                &ldquo;{b.uh_remarks}&rdquo;
+                              </span>
+                            )}
                           </div>
                           <div>
-                            <span className="text-slate-400 font-semibold">Admin Dispatch: </span>
+                            <span className="text-slate-400 font-semibold">FH-HR / Admin: </span>
                             <span className="font-bold text-slate-600">
-                              {b.admin_hr_approval_status || 'AWAITING'}
+                              {b.admin_hr_approval_status || 'PENDING'}
                             </span>
+                            {b.admin_hr_remarks && (
+                              <span className="block text-[10px] italic text-slate-500">
+                                &ldquo;{b.admin_hr_remarks}&rdquo;
+                              </span>
+                            )}
                           </div>
                         </td>
 
                         <td className="py-4 px-5 align-top text-right">
                           {isAlreadyDecided ? (
-                            <span
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold ${
-                                currentStageStatus === 'APPROVED'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              {currentStageStatus === 'APPROVED' ? (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              ) : (
-                                <XCircle className="w-3.5 h-3.5" />
+                            <div className="space-y-1.5 text-right">
+                              <span
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold ${
+                                  currentStageStatus === 'APPROVED'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                }`}
+                              >
+                                {currentStageStatus === 'APPROVED' ? (
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                ) : (
+                                  <XCircle className="w-3.5 h-3.5" />
+                                )}
+                                {approverStage} {currentStageStatus}
+                              </span>
+                              {recordedRemark && (
+                                <p className="text-[11px] text-slate-500 italic">
+                                  Remark: &ldquo;{recordedRemark}&rdquo;
+                                </p>
                               )}
-                              {approverStage} {currentStageStatus}
-                            </span>
+                            </div>
                           ) : (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={processingId === b.id}
-                                onClick={() => handleDecision(b.id, 'APPROVED')}
-                                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                Approve
-                              </button>
-                              <button
-                                type="button"
-                                disabled={processingId === b.id}
-                                onClick={() => handleDecision(b.id, 'REJECTED')}
-                                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                Reject
-                              </button>
+                            <div className="space-y-2">
+                              <div className="relative">
+                                <MessageSquare className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                                <input
+                                  type="text"
+                                  value={remarksMap[b.id] || ''}
+                                  onChange={(e) =>
+                                    setRemarksMap((prev) => ({ ...prev, [b.id]: e.target.value }))
+                                  }
+                                  placeholder={`Enter ${approverStage} remark (required to reject)...`}
+                                  className="w-full pl-8 pr-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-[11px] text-slate-900 focus:outline-none focus:border-blue-500"
+                                />
+                              </div>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  disabled={processingId === b.id}
+                                  onClick={() => handleDecision(b.id, 'APPROVED')}
+                                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={processingId === b.id}
+                                  onClick={() => handleDecision(b.id, 'REJECTED')}
+                                  className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black hover:bg-rose-100 disabled:opacity-50 transition"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Reject
+                                </button>
+                              </div>
                             </div>
                           )}
                         </td>

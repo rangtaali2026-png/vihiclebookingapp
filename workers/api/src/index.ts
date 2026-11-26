@@ -2058,11 +2058,26 @@ export default {
             return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
           }
 
+          const cleanRemark = body.remarks ? String(body.remarks).trim() : null;
+
+          if (decision === 'REJECTED' && !cleanRemark) {
+            return jsonResponse({ error: 'Please provide a remark explaining the rejection.' }, 400, corsHeaders);
+          }
+
           const updates: any = { updated_at: new Date().toISOString() };
           if (stage === 'DH') updates.dh_approval_status = decision;
-          if (stage === 'FH') updates.fh_approval_status = decision;
-          if (stage === 'UH') updates.uh_approval_status = decision;
-          if (stage === 'FH_HR_ADMIN') updates.admin_hr_approval_status = decision;
+          if (stage === 'FH') {
+            updates.fh_approval_status = decision;
+            if (cleanRemark !== null) updates.fh_remarks = cleanRemark;
+          }
+          if (stage === 'UH') {
+            updates.uh_approval_status = decision;
+            if (cleanRemark !== null) updates.uh_remarks = cleanRemark;
+          }
+          if (stage === 'FH_HR_ADMIN') {
+            updates.admin_hr_approval_status = decision;
+            if (cleanRemark !== null) updates.admin_hr_remarks = cleanRemark;
+          }
 
           if (decision === 'REJECTED') {
             updates.status = 'REJECTED';
