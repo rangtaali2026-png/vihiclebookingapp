@@ -2299,20 +2299,7 @@ export default {
             }
           }
 
-          if (!requesterId) {
-            // 3. Last resort: insert a minimal user record so requester_id FK succeeds
-            const { data: createdUser } = await supabase
-              .from('users')
-              .insert({
-                full_name: body.employee_name || body.requester_name || 'Plant Employee',
-                email: `${empCode.toLowerCase().replace(/[^a-z0-9]/g, '')}@plant.local`,
-                role: 'EMPLOYEE'
-              })
-              .select('id')
-              .single();
-
-            requesterId = createdUser?.id || null;
-          }
+          // Keep requesterId null if not matched in auth/profiles so FK constraints are respected
 
           // Resolve default site_id if not passed by the employee form
           let siteId = body.site_id || null;
@@ -2374,11 +2361,11 @@ export default {
             .single();
 
           // Fallback if some columns differ between legacy & GCD schema
-          if (insErr && insErr.message && (insErr.message.includes('column') || insErr.message.includes('booking_type'))) {
+          if (insErr && insErr.message && (insErr.message.includes('column') || insErr.message.includes('booking_type') || insErr.message.includes('foreign key'))) {
             const safePayload: any = {
               booking_reference: bookingRef,
               site_id: siteId,
-              requester_id: requesterId,
+              requester_id: null,
               booking_type: 'PRIVATE',
               target_category: insertPayload.target_category,
               origin_location: originLoc,
