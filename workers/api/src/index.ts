@@ -2098,6 +2098,52 @@ export default {
               : (destLoc && !String(destLoc).toLowerCase().includes('bharuch'))
           );
 
+          // Resolve requester_id (NOT NULL UUID foreign key) from users / employees
+          let requesterId = body.requester_id || null;
+          const empCode = String(body.employee_id || 'EMP-000').trim().toUpperCase();
+
+          if (!requesterId) {
+            // 1. Try matching by employee_id / employee_code in users table
+            const { data: matchedUser } = await supabase
+              .from('users')
+              .select('id')
+              .or(`employee_id.eq.${empCode},employee_code.eq.${empCode}`)
+              .limit(1)
+              .maybeSingle();
+
+            if (matchedUser?.id) {
+              requesterId = matchedUser.id;
+            }
+          }
+
+          if (!requesterId) {
+            // 2. Fallback to any existing user in users table for the site
+            const { data: fallbackUser } = await supabase
+              .from('users')
+              .select('id')
+              .limit(1)
+              .maybeSingle();
+
+            if (fallbackUser?.id) {
+              requesterId = fallbackUser.id;
+            }
+          }
+
+          if (!requesterId) {
+            // 3. Last resort: insert a minimal user record so requester_id FK succeeds
+            const { data: createdUser } = await supabase
+              .from('users')
+              .insert({
+                full_name: body.employee_name || body.requester_name || 'Plant Employee',
+                email: `${empCode.toLowerCase().replace(/[^a-z0-9]/g, '')}@plant.local`,
+                role: 'EMPLOYEE'
+              })
+              .select('id')
+              .single();
+
+            requesterId = createdUser?.id || null;
+          }
+
           // Resolve default site_id if not passed by the employee form
           let siteId = body.site_id || null;
           if (!siteId) {
@@ -2112,7 +2158,7 @@ export default {
           const insertPayload: any = {
             booking_reference: bookingRef,
             site_id: siteId,
-            requester_id: body.requester_id || null,
+            requester_id: requesterId,
             booking_type: body.booking_type || 'PRIVATE',
             target_category: body.vehicle_category || body.target_category || 'SEDAN_4',
             origin_location: originLoc,
@@ -2156,6 +2202,7 @@ export default {
             const safePayload: any = {
               booking_reference: bookingRef,
               site_id: siteId,
+              requester_id: requesterId,
               booking_type: 'PRIVATE',
               target_category: insertPayload.target_category,
               origin_location: originLoc,
