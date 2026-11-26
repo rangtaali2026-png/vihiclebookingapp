@@ -2244,6 +2244,48 @@ export default {
         }
       }
 
+      // GET /api/bookings/track?employee_id=...&mobile=... (Employee Self-Service Status Tracker)
+      if (request.method === 'GET' && path === '/api/bookings/track') {
+        try {
+          const empId = (url.searchParams.get('employee_id') || '').trim().toUpperCase();
+          const rawMobile = (url.searchParams.get('mobile') || '').replace(/\D/g, '');
+
+          if (!empId || !rawMobile) {
+            return jsonResponse({ error: 'Both Employee ID and Mobile Number are required.' }, 400, corsHeaders);
+          }
+
+          const last10Mobile = rawMobile.slice(-10);
+
+          const { data: rows, error: queryErr } = await supabase
+            .from('bookings')
+            .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity), drivers!bookings_allotted_driver_id_fkey(id, name, mobile_number)')
+            .ilike('employee_id', empId)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (queryErr) {
+            return jsonResponse({ error: queryErr.message }, 500, corsHeaders);
+          }
+
+          const matched = (rows || []).filter((b: any) => {
+            const dbMobile = String(b.mobile || '').replace(/\D/g, '');
+            if (dbMobile && dbMobile.slice(-10) === last10Mobile) return true;
+            // Also check passenger_manifest if primary mobile differs
+            if (Array.isArray(b.passenger_manifest)) {
+              return b.passenger_manifest.some((p: any) => String(p.mobile || '').replace(/\D/g, '').slice(-10) === last10Mobile);
+            }
+            return false;
+          });
+
+          return jsonResponse({
+            success: true,
+            bookings: matched
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to track booking status' }, 500, corsHeaders);
+        }
+      }
+
       // POST /api/bookings (Grasim GCD Vehicle Request Form)
       if (request.method === 'POST' && (path === '/api/bookings' || path === '/api/bookings/')) {
         try {

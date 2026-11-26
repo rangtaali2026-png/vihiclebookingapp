@@ -5,7 +5,7 @@ import AppNavbar from '@/components/AppNavbar';
 import { fetchApi } from '@/lib/api';
 import {
   Calendar, Clock, MapPin, Users, ShieldCheck, AlertTriangle,
-  Plus, Trash2, CheckCircle2, FileText, Info
+  Plus, Trash2, CheckCircle2, FileText, Info, Search, Phone, Car, X
 } from 'lucide-react';
 
 interface TravelerRow {
@@ -105,6 +105,46 @@ export default function VehicleRequestFormPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
+
+  // Employee Self-Service Status Tracker State
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [trackEmpId, setTrackEmpId] = useState('');
+  const [trackMobile, setTrackMobile] = useState('');
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackedBookings, setTrackedBookings] = useState<any[] | null>(null);
+  const [trackError, setTrackError] = useState<string | null>(null);
+
+  const openStatusTracker = () => {
+    if (employeeId && !trackEmpId) setTrackEmpId(employeeId);
+    if (contactNo && !trackMobile) setTrackMobile(contactNo);
+    setShowStatusModal(true);
+    if ((employeeId || trackEmpId) && (contactNo || trackMobile)) {
+      handleTrackLookup(employeeId || trackEmpId, contactNo || trackMobile);
+    }
+  };
+
+  const handleTrackLookup = async (empVal?: string, mobVal?: string) => {
+    const qEmp = (empVal ?? trackEmpId).trim().toUpperCase();
+    const qMob = (mobVal ?? trackMobile).trim();
+    if (!qEmp || !qMob) {
+      setTrackError('Please enter both Employee ID and Mobile Number.');
+      return;
+    }
+    setTrackingLoading(true);
+    setTrackError(null);
+    try {
+      const res = await fetchApi<{ bookings?: any[] }>(
+        `/api/bookings/track?employee_id=${encodeURIComponent(qEmp)}&mobile=${encodeURIComponent(qMob)}`
+      );
+      setTrackedBookings(Array.isArray(res?.bookings) ? res.bookings : []);
+    } catch (err: any) {
+      setTrackError(err.message || 'Unable to fetch requisition status.');
+      setTrackedBookings([]);
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
 
   // Sync Traveler rows count with Number of Travelers
   const handlePassengerCountChange = (count: number) => {
@@ -235,9 +275,19 @@ export default function VehicleRequestFormPage() {
               Outstation & Local Plant Cab Requisition (Bharuch, Vadodara/Baroda, Surat, Ahmedabad)
             </p>
           </div>
-          <div className="text-right bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl">
-            <span className="block text-[10px] font-bold uppercase text-slate-400">Request Date</span>
-            <span className="font-mono text-sm font-black text-slate-800">{requestDate}</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={openStatusTracker}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 transition shadow-sm"
+            >
+              <Search className="w-3.5 h-3.5" />
+              Check Request Status
+            </button>
+            <div className="text-right bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl">
+              <span className="block text-[10px] font-bold uppercase text-slate-400">Request Date</span>
+              <span className="font-mono text-sm font-black text-slate-800">{requestDate}</span>
+            </div>
           </div>
         </div>
 
@@ -256,13 +306,22 @@ export default function VehicleRequestFormPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setSubmittedRef(null)}
-              className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
-            >
-              New Request
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={openStatusTracker}
+                className="px-4 py-2 rounded-xl bg-white text-emerald-800 border border-emerald-300 text-xs font-black hover:bg-emerald-100"
+              >
+                Track Status
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubmittedRef(null)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700"
+              >
+                New Request
+              </button>
+            </div>
           </div>
         )}
 
@@ -818,6 +877,183 @@ export default function VehicleRequestFormPage() {
           </div>
         </form>
       </main>
+    
+      {/* Employee Request Status Tracker Modal */}
+      {showStatusModal && (
+        <div
+          onClick={() => setShowStatusModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl space-y-5 max-h-[88vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h2 className="text-base font-black text-slate-900">Track Cab Requisition Status</h2>
+                <p className="text-xs text-slate-500">
+                  Enter your Employee ID and registered Mobile Number to view live approval &amp; cab allotment details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleTrackLookup();
+              }}
+              className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs"
+            >
+              <div className="sm:col-span-5">
+                <label className="block font-bold text-slate-700 mb-1">Employee ID *</label>
+                <input
+                  type="text"
+                  required
+                  value={trackEmpId}
+                  onChange={(e) => setTrackEmpId(e.target.value.toUpperCase())}
+                  placeholder="e.g. EMP-1042"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-bold text-slate-900"
+                />
+              </div>
+              <div className="sm:col-span-4">
+                <label className="block font-bold text-slate-700 mb-1">Mobile Number *</label>
+                <input
+                  type="tel"
+                  required
+                  value={trackMobile}
+                  onChange={(e) => setTrackMobile(e.target.value)}
+                  placeholder="e.g. 9825112345"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono font-semibold text-slate-900"
+                />
+              </div>
+              <div className="sm:col-span-3 flex items-end">
+                <button
+                  type="submit"
+                  disabled={trackingLoading}
+                  className="w-full py-2 px-4 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700 disabled:opacity-50 transition"
+                >
+                  {trackingLoading ? 'Checking...' : 'Check Status'}
+                </button>
+              </div>
+            </form>
+
+            {trackError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs font-semibold text-rose-700">
+                {trackError}
+              </div>
+            )}
+
+            <div className="overflow-y-auto space-y-3 pr-1 flex-1">
+              {trackedBookings !== null && trackedBookings.length === 0 && !trackingLoading && (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
+                  No vehicle requests found matching Employee ID <strong>{trackEmpId}</strong> and Mobile <strong>{trackMobile}</strong>.
+                </div>
+              )}
+
+              {trackedBookings &&
+                trackedBookings.map((b) => {
+                  const isRejected =
+                    b.status === 'REJECTED' ||
+                    b.status === 'CANCELLED' ||
+                    b.fh_approval_status === 'REJECTED' ||
+                    b.uh_approval_status === 'REJECTED' ||
+                    b.admin_hr_approval_status === 'REJECTED';
+
+                  const overallLabel = isRejected
+                    ? 'REJECTED'
+                    : b.status === 'DISPATCHED'
+                    ? 'CAB DISPATCHED'
+                    : b.status === 'APPROVED'
+                    ? 'APPROVED (AWAITING CAB)'
+                    : 'PENDING APPROVAL';
+
+                  const badgeStyle = isRejected
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                    : b.status === 'DISPATCHED'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : b.status === 'APPROVED'
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-amber-50 text-amber-800 border-amber-200';
+
+                  return (
+                    <div
+                      key={b.id}
+                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3 text-xs"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
+                        <div>
+                          <span className="font-mono font-black text-blue-600">{b.booking_reference}</span>
+                          <span className="block font-bold text-slate-900 mt-0.5">
+                            {b.origin_location || b.pickup_location} → {b.destination_location || b.drop_location}
+                          </span>
+                          <span className="text-[11px] text-slate-500">
+                            {b.travel_date || (b.scheduled_start_time || '').slice(0, 10)} at {b.pickup_time || '09:00'} • {b.trip_type || 'One Way Trip'}
+                          </span>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold border ${badgeStyle}`}>
+                          {overallLabel}
+                        </span>
+                      </div>
+
+                      {/* Stage-by-Stage Approval Progress */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-400 font-semibold block">1. FH Sign-Off</span>
+                          <span className="font-extrabold text-slate-800">{b.fh_approval_status || 'PENDING'}</span>
+                          {b.fh_remarks && (
+                            <span className="block text-[10px] italic text-slate-500 mt-0.5">&ldquo;{b.fh_remarks}&rdquo;</span>
+                          )}
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-400 font-semibold block">2. UH Sign-Off</span>
+                          <span className="font-extrabold text-slate-800">{b.uh_approval_status || 'PENDING'}</span>
+                          {b.uh_remarks && (
+                            <span className="block text-[10px] italic text-slate-500 mt-0.5">&ldquo;{b.uh_remarks}&rdquo;</span>
+                          )}
+                        </div>
+                        <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-400 font-semibold block">3. FH-HR / Admin</span>
+                          <span className="font-extrabold text-slate-800">{b.admin_hr_approval_status || 'PENDING'}</span>
+                          {b.admin_hr_remarks && (
+                            <span className="block text-[10px] italic text-slate-500 mt-0.5">&ldquo;{b.admin_hr_remarks}&rdquo;</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dispatched Vehicle & Driver Details (if allotted) */}
+                      {(b.vehicles || b.drivers || b.status === 'DISPATCHED') && (
+                        <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <div className="flex items-center gap-2 font-bold text-emerald-900">
+                            <Car className="w-4 h-4 text-emerald-600" />
+                            <span>
+                              Allotted Cab: {b.vehicles?.registration_number || 'Assigned'} ({b.vehicles?.model || 'Vehicle'})
+                            </span>
+                          </div>
+                          {b.drivers && (
+                            <div className="flex items-center gap-1.5 font-semibold text-emerald-800">
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>
+                                Driver: {b.drivers.name} ({b.drivers.mobile_number})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
