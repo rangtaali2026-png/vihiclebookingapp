@@ -78,6 +78,25 @@ export default function VehicleRequestFormPage() {
   const [pickupTime, setPickupTime] = useState('09:00');
   const [purposeOfTravel, setPurposeOfTravel] = useState('');
 
+  const [fhApprovers, setFhApprovers] = useState<any[]>([]);
+  const [uhApprovers, setUhApprovers] = useState<any[]>([]);
+  const [selectedFhEmail, setSelectedFhEmail] = useState('');
+  const [selectedUhEmail, setSelectedUhEmail] = useState('');
+
+  useEffect(() => {
+    fetchApi<{ fh_approvers?: any[]; uh_approvers?: any[] }>('/api/users/approvers')
+      .then((res) => {
+        const fhList = Array.isArray(res?.fh_approvers) ? res.fh_approvers : [];
+        const uhList = Array.isArray(res?.uh_approvers) ? res.uh_approvers : [];
+        setFhApprovers(fhList);
+        setUhApprovers(uhList);
+        if (fhList.length === 1) setSelectedFhEmail(fhList[0].email);
+        if (uhList.length === 1) setSelectedUhEmail(uhList[0].email);
+      })
+      .catch(() => {});
+  }, []);
+
+
   // Extra Configured Fields (shown only when toggled ON by Super Admin)
   const [vehicleCategory, setVehicleCategory] = useState('SEDAN_4');
   const [costCenter, setCostCenter] = useState('');
@@ -148,6 +167,8 @@ export default function VehicleRequestFormPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const chosenFh = fhApprovers.find((a) => a.email === selectedFhEmail);
+      const chosenUh = uhApprovers.find((a) => a.email === selectedUhEmail);
       const payload = {
         request_date: requestDate,
         employee_name: requesterName,
@@ -172,6 +193,12 @@ export default function VehicleRequestFormPage() {
         pickup_time: pickupTime,
         purpose_of_travel: purposeOfTravel,
         is_outstation: isOutstation,
+        assigned_fh_approver_id: chosenFh?.id || null,
+        assigned_fh_approver_email: chosenFh?.email || null,
+        assigned_fh_approver_name: chosenFh?.full_name || null,
+        assigned_uh_approver_id: chosenUh?.id || null,
+        assigned_uh_approver_email: chosenUh?.email || null,
+        assigned_uh_approver_name: chosenUh?.full_name || null,
         vehicle_category: enabledFields.vehicle_category ? vehicleCategory : 'SEDAN_4',
         cost_center: enabledFields.cost_center ? costCenter : null,
         priority_flag: enabledFields.priority_flag ? priorityFlag : false,
@@ -668,6 +695,49 @@ export default function VehicleRequestFormPage() {
                     : 'LOCAL (Within Bharuch): Dept. DH & Admin Approval'}
                 </span>
               </div>
+
+                            {/* Assigned FH & UH Approver Selection Dropdowns (from Access List) */}
+              {isOutstation && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 pb-2 text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">
+                      Select Functional Head (FH) Approver *
+                    </label>
+                    <select
+                      required={isOutstation}
+                      value={selectedFhEmail}
+                      onChange={(e) => setSelectedFhEmail(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-amber-50/30 font-semibold text-slate-900 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">-- Choose Functional Head from Access List --</option>
+                      {fhApprovers.map((fh) => (
+                        <option key={fh.email} value={fh.email}>
+                          {fh.full_name} ({fh.department || 'Operations'}) — {fh.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1">
+                      Select Unit Head (UH) Approver *
+                    </label>
+                    <select
+                      required={isOutstation}
+                      value={selectedUhEmail}
+                      onChange={(e) => setSelectedUhEmail(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-amber-300 bg-amber-50/30 font-semibold text-slate-900 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">-- Choose Unit Head from Access List --</option>
+                      {uhApprovers.map((uh) => (
+                        <option key={uh.email} value={uh.email}>
+                          {uh.full_name} ({uh.department || 'Leadership'}) — {uh.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                 <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/50">

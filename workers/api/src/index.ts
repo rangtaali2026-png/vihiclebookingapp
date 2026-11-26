@@ -2081,6 +2081,23 @@ export default {
             (booking.drop_location && !String(booking.drop_location).toLowerCase().includes('bharuch'))
           );
 
+          // Enforce assigned approver ownership check
+          const actorEmail = body.approver_email ? String(body.approver_email).trim().toLowerCase() : '';
+          if (stage === 'FH' && booking.assigned_fh_approver_email && actorEmail) {
+            if (String(booking.assigned_fh_approver_email).trim().toLowerCase() !== actorEmail) {
+              return jsonResponse({
+                error: `This request is assigned to ${booking.assigned_fh_approver_name || booking.assigned_fh_approver_email}. Only the assigned FH Approver can act on it.`
+              }, 403, corsHeaders);
+            }
+          }
+          if (stage === 'UH' && booking.assigned_uh_approver_email && actorEmail) {
+            if (String(booking.assigned_uh_approver_email).trim().toLowerCase() !== actorEmail) {
+              return jsonResponse({
+                error: `This request is assigned to ${booking.assigned_uh_approver_name || booking.assigned_uh_approver_email}. Only the assigned UH Approver can act on it.`
+              }, 403, corsHeaders);
+            }
+          }
+
           // Enforce sequential prerequisite checks
           if (stage === 'UH' && isOutstation && booking.fh_approval_status !== 'APPROVED') {
             return jsonResponse({ error: 'Functional Head (FH) approval is required before Unit Head (UH) review.' }, 400, corsHeaders);
@@ -2193,6 +2210,38 @@ export default {
           booking: updated,
           message: `Booking ${booking.booking_reference} has been cancelled successfully.`
         }, 200, corsHeaders);
+      }
+
+      // GET /api/users/approvers (Active FH & UH Approvers from access list)
+      if (request.method === 'GET' && path === '/api/users/approvers') {
+        try {
+          const { data: usersList } = await supabase
+            .from('users')
+            .select('id, full_name, email, role, department, is_active')
+            .in('role', ['FH_APPROVER', 'UH_APPROVER'])
+            .order('full_name', { ascending: true });
+
+          const activeUsers = (usersList || []).filter((u: any) => u.is_active !== false);
+
+          const fhApprovers = activeUsers.filter((u: any) => u.role === 'FH_APPROVER');
+          const uhApprovers = activeUsers.filter((u: any) => u.role === 'UH_APPROVER');
+
+          // Fallback to default seeded approvers if public.users has not been populated yet
+          const finalFh = fhApprovers.length > 0 ? fhApprovers : [
+            { id: 'fh-default-1', full_name: 'Rajesh Mehta (Functional Head)', email: 'fh.approval@grasim.local', role: 'FH_APPROVER', department: 'Operations' }
+          ];
+          const finalUh = uhApprovers.length > 0 ? uhApprovers : [
+            { id: 'uh-default-1', full_name: 'Suresh Nair (Unit Head)', email: 'uh.approval@grasim.local', role: 'UH_APPROVER', department: 'Plant Leadership' }
+          ];
+
+          return jsonResponse({
+            success: true,
+            fh_approvers: finalFh,
+            uh_approvers: finalUh
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to fetch approvers' }, 500, corsHeaders);
+        }
       }
 
       // POST /api/bookings (Grasim GCD Vehicle Request Form)
@@ -2308,6 +2357,12 @@ export default {
             fh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
             uh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
             admin_hr_approval_status: 'PENDING',
+            assigned_fh_approver_id: body.assigned_fh_approver_id && !String(body.assigned_fh_approver_id).startsWith('fh-default') ? body.assigned_fh_approver_id : null,
+            assigned_fh_approver_email: body.assigned_fh_approver_email || null,
+            assigned_fh_approver_name: body.assigned_fh_approver_name || null,
+            assigned_uh_approver_id: body.assigned_uh_approver_id && !String(body.assigned_uh_approver_id).startsWith('uh-default') ? body.assigned_uh_approver_id : null,
+            assigned_uh_approver_email: body.assigned_uh_approver_email || null,
+            assigned_uh_approver_name: body.assigned_uh_approver_name || null,
             cost_center: body.cost_center || null,
             priority_flag: Boolean(body.priority_flag)
           };

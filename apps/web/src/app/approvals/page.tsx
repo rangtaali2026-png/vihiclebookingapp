@@ -75,6 +75,7 @@ export default function ExecutiveApprovalsPage() {
           stage: approverStage,
           decision,
           approver_name: user?.name || approverStage,
+          approver_email: user?.email || '',
           remarks: remarkText
         })
       });
@@ -108,12 +109,23 @@ export default function ExecutiveApprovalsPage() {
     b.admin_hr_approval_status === 'REJECTED';
 
   const relevantBookings = useMemo(() => {
-    const outstationList = bookings.filter(
-      (b) =>
+    const currentUserEmail = (user?.email || '').trim().toLowerCase();
+
+    const outstationList = bookings.filter((b) => {
+      const isOut =
         b.is_outstation ||
         (b.destination_location && !String(b.destination_location).toLowerCase().includes('bharuch')) ||
-        (b.drop_location && !String(b.drop_location).toLowerCase().includes('bharuch'))
-    );
+        (b.drop_location && !String(b.drop_location).toLowerCase().includes('bharuch'));
+      if (!isOut) return false;
+
+      if (approverStage === 'FH' && b.assigned_fh_approver_email && currentUserEmail) {
+        return String(b.assigned_fh_approver_email).trim().toLowerCase() === currentUserEmail;
+      }
+      if (approverStage === 'UH' && b.assigned_uh_approver_email && currentUserEmail) {
+        return String(b.assigned_uh_approver_email).trim().toLowerCase() === currentUserEmail;
+      }
+      return true;
+    });
 
     if (filterTab === 'ALL') {
       // For UH, only show requests that FH did not reject (and either FH approved or already decided by UH)
@@ -138,7 +150,7 @@ export default function ExecutiveApprovalsPage() {
       // UH Stage: ONLY show after FH has explicitly APPROVED, and UH has not approved yet
       return b.fh_approval_status === 'APPROVED' && b.uh_approval_status !== 'APPROVED';
     });
-  }, [bookings, filterTab, approverStage]);
+  }, [bookings, filterTab, approverStage, user]);
 
   return (
     <div className="min-h-screen bg-[#F5F7FA]">
