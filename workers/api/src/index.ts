@@ -413,6 +413,70 @@ export default {
 
 
       // ==========================================
+      // SUPER ADMIN: UPDATE & DELETE PLANT SITES
+      // ==========================================
+      const siteIdMatch = path.match(/^\/api\/(?:super-admin\/)?sites\/([a-zA-Z0-9-]+)\/?$/);
+      if (siteIdMatch) {
+        const targetSiteId = siteIdMatch[1];
+
+        if (request.method === 'PATCH' || request.method === 'PUT') {
+          try {
+            const body = await request.json() as any;
+            const updatePayload: any = {
+              updated_at: new Date().toISOString()
+            };
+
+            if (body.name !== undefined) updatePayload.name = String(body.name).trim();
+            if (body.location !== undefined) updatePayload.location = String(body.location).trim();
+            if (body.code !== undefined) updatePayload.code = String(body.code).trim().toUpperCase();
+            if (body.manager_name !== undefined) updatePayload.manager_name = String(body.manager_name).trim();
+            if (body.manager_phone !== undefined) updatePayload.manager_phone = String(body.manager_phone).trim();
+            if (body.status !== undefined) updatePayload.status = String(body.status).trim().toUpperCase();
+            if (body.auto_allot !== undefined) updatePayload.auto_allot = Boolean(body.auto_allot);
+
+            const { data: updatedSite, error: upErr } = await supabase
+              .from('sites')
+              .update(updatePayload)
+              .eq('id', targetSiteId)
+              .select()
+              .single();
+
+            if (upErr) {
+              return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+            }
+
+            return jsonResponse({
+              success: true,
+              message: 'Plant site partition updated successfully',
+              site: updatedSite
+            }, 200, corsHeaders);
+          } catch (err: any) {
+            return jsonResponse({ error: err.message || 'Failed to update site' }, 500, corsHeaders);
+          }
+        }
+
+        if (request.method === 'DELETE') {
+          try {
+            const { error: delErr } = await supabase
+              .from('sites')
+              .delete()
+              .eq('id', targetSiteId);
+
+            if (delErr) {
+              return jsonResponse({ error: delErr.message }, 500, corsHeaders);
+            }
+
+            return jsonResponse({
+              success: true,
+              message: 'Plant partition removed successfully'
+            }, 200, corsHeaders);
+          } catch (err: any) {
+            return jsonResponse({ error: err.message || 'Failed to delete site' }, 500, corsHeaders);
+          }
+        }
+      }
+
+      // ==========================================
       // FLEET DRIVERS: GET & POST
       // ==========================================
       if (path === '/api/fleet/drivers') {

@@ -36,7 +36,7 @@ import {
   X,
   UserCheck,
   Power
-} from 'lucide-react';
+, Edit2, Trash2, Wrench, X } from 'lucide-react';
 
 // ============================================================================
 // 1. TYPESCRIPT DATA CONTRACTS
@@ -1334,6 +1334,115 @@ export default function SuperAdminSitesPage() {
           </div>
         )}
       </AnimatePresence>
+    
+      {/* Edit Plant Partition Modal */}
+      {editingSite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <form
+            onSubmit={handleSaveSiteEdit}
+            className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-6 shadow-xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Edit Industrial Plant Partition</h3>
+                <p className="text-xs text-slate-500">Modify tenant metadata, site manager, or operational status</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSite(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">Plant Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editingSite.name || ''}
+                  onChange={(e) => setEditingSite({ ...editingSite, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Plant Code</label>
+                <input
+                  type="text"
+                  required
+                  value={editingSite.code || ''}
+                  onChange={(e) => setEditingSite({ ...editingSite, code: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-slate-900 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Operational Status</label>
+                <select
+                  value={editingSite.status || 'ACTIVE'}
+                  onChange={(e) => setEditingSite({ ...editingSite, status: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-bold bg-white"
+                >
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="MAINTENANCE">MAINTENANCE</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 mb-1">Campus Location</label>
+                <input
+                  type="text"
+                  required
+                  value={editingSite.location || ''}
+                  onChange={(e) => setEditingSite({ ...editingSite, location: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Site Manager</label>
+                <input
+                  type="text"
+                  value={editingSite.manager_name || ''}
+                  onChange={(e) => setEditingSite({ ...editingSite, manager_name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Manager Phone</label>
+                <input
+                  type="text"
+                  value={editingSite.manager_phone || ''}
+                  onChange={(e) => setEditingSite({ ...editingSite, manager_phone: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-mono text-slate-900 font-medium"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setEditingSite(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingSite}
+                className="px-5 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSavingSite ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
     </div>
   );
 }
