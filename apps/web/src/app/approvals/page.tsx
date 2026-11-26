@@ -144,11 +144,15 @@ export default function ExecutiveApprovalsPage() {
       }
 
       if (approverStage === 'FH') {
-        return !b.fh_approval_status || b.fh_approval_status === 'PENDING';
+        return b.fh_approval_status !== 'APPROVED' && b.fh_approval_status !== 'REJECTED';
       }
 
-      // UH Stage: ONLY show after FH has explicitly APPROVED, and UH has not approved yet
-      return b.fh_approval_status === 'APPROVED' && b.uh_approval_status !== 'APPROVED';
+      // UH Stage: ONLY show after FH has explicitly APPROVED, and UH has not approved/rejected yet
+      return (
+        b.fh_approval_status === 'APPROVED' &&
+        b.uh_approval_status !== 'APPROVED' &&
+        b.uh_approval_status !== 'REJECTED'
+      );
     });
   }, [bookings, filterTab, approverStage, user]);
 

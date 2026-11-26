@@ -2416,7 +2416,15 @@ export default {
               scheduled_end_time: scheduledEnd,
               purpose: insertPayload.purpose,
               passenger_count: insertPayload.passenger_count,
-              status: 'PENDING'
+              status: 'PENDING',
+              is_outstation: isOutstation,
+              fh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
+              uh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
+              admin_hr_approval_status: 'PENDING',
+              assigned_fh_approver_email: body.assigned_fh_approver_email || null,
+              assigned_fh_approver_name: body.assigned_fh_approver_name || null,
+              assigned_uh_approver_email: body.assigned_uh_approver_email || null,
+              assigned_uh_approver_name: body.assigned_uh_approver_name || null
             };
             const retry = await supabase
               .from('bookings')
