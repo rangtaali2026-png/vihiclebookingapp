@@ -171,7 +171,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-2xl font-black text-smart-navy tracking-tight">SmartDrive Enterprise Portal</h1>
         <p className="text-xs text-smart-muted">
-          Employee & Fleet Transportation System for Gujarat Manufacturing Hubs
+          Employee & Ride Transportation System for Gujarat Manufacturing Hubs
         </p>
       </div>
 
@@ -286,7 +286,7 @@ export default function LoginPage() {
         {/* Demo Credentials Footer Cheat Sheet */}
         <div className="mt-4 p-4 rounded-2xl bg-white/70 border border-smart-border text-[11px] text-smart-muted space-y-1">
           <p className="font-bold text-smart-navy uppercase tracking-wider text-[10px]">
-            Demo Credentials (Password: Admin@2026, Super@2026, Fleet@2026, Rider@2026, Driver@2026)
+            Demo Credentials (Password: Admin@2026, Super@2026, Ride@2026, Rider@2026, Driver@2026)
           </p>
         </div>
       </div>

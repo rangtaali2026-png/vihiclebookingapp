@@ -28,7 +28,7 @@ export default function AppNavbar() {
   const navLinks = [
     { href: '/bookings', label: 'Dashboard & Bookings', icon: Calendar, visible: true },
     { href: '/shifts', label: 'Shift Rosters', icon: Layers, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
-    { href: '/dispatch', label: 'Fleet Dispatch', icon: Car, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
+    { href: '/dispatch', label: 'Ride Dispatch', icon: Car, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
     { href: '/analytics', label: 'Operations Intelligence', icon: BarChart3, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
     { href: '/audit', label: 'Settlement & Audit', icon: FileSpreadsheet, visible: isSuperAdmin || session?.role === 'PLANT_SUPERVISOR' || session?.role === 'FLEET_ADMIN' },
   ];

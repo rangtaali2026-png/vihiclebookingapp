@@ -42,10 +42,10 @@ export default function AnalyticsPage() {
               <span className="text-xs text-smart-muted font-medium">{session?.siteName || 'Vadodara Chemical Complex'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-smart-navy tracking-tight mt-1">
-              Fleet Analytics & Asset Utilization
+              Ride Analytics & Asset Utilization
             </h1>
             <p className="text-xs sm:text-sm text-smart-muted mt-0.5">
-              Live fleet telemetry, seat occupancy ratios, and HSE transport compliance metrics.
+              Live ride telemetry, seat occupancy ratios, and HSE transport compliance metrics.
             </p>
           </div>
 
@@ -59,7 +59,7 @@ export default function AnalyticsPage() {
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="smart-glass-card p-5">
-            <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Fleet Utilization</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Ride Utilization</span>
             <div className="flex items-center justify-between mt-2">
               <span className="text-3xl font-black text-smart-blue">{metrics.fleetUtilization}</span>
               <Activity className="w-5 h-5 text-smart-blue" />
@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="smart-glass-card p-5">
-            <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Operational Fleet & Drivers</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-smart-muted">Operational Ride & Drivers</span>
             <div className="flex items-center justify-between mt-2">
               <span className="text-3xl font-black text-smart-navy">{metrics.activeVehicles} Cars</span>
               <Car className="w-5 h-5 text-smart-blue" />

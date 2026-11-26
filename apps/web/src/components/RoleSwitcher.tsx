@@ -13,7 +13,7 @@ const PLANT_SITES = [
 const ROLES: { role: UserRole; label: string; badgeColor: string; icon: any }[] = [
   { role: 'SUPER_ADMIN', label: 'Super Admin', badgeColor: 'bg-blue-50 text-smart-blue border-blue-200', icon: Key },
   { role: 'PLANT_SUPERVISOR', label: 'Plant Supervisor', badgeColor: 'bg-sky-50 text-sky-700 border-sky-200', icon: Building2 },
-  { role: 'FLEET_ADMIN', label: 'Fleet Admin', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200', icon: Shield },
+  { role: 'FLEET_ADMIN', label: 'Ride Admin', badgeColor: 'bg-amber-50 text-amber-700 border-amber-200', icon: Shield },
   { role: 'EMPLOYEE_RIDER', label: 'Employee Rider', badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: User },
   { role: 'DRIVER', label: 'Transit Driver', badgeColor: 'bg-slate-100 text-slate-700 border-slate-200', icon: Truck },
 ];

@@ -499,7 +499,7 @@ export default function SuperAdminSitesPage() {
               trend: 'AES-256 Storage',
             },
             {
-              title: 'Fleet Vehicles',
+              title: 'Ride Vehicles',
               value: metrics.totalVehicles,
               subtitle: 'Real-time Linked',
               icon: Car,
@@ -553,7 +553,7 @@ export default function SuperAdminSitesPage() {
             {[
               { key: 'PLANTS', label: 'Plants & Sites', icon: Building2 },
               { key: 'GATEWAYS', label: 'Encrypted Gateway Vault', icon: KeyRound },
-              { key: 'ANALYTICS', label: 'Fleet Telemetry', icon: Activity },
+              { key: 'ANALYTICS', label: 'Ride Telemetry', icon: Activity },
               { key: 'AUDIT', label: 'Security Audit Logs', icon: ShieldAlert },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -777,7 +777,7 @@ export default function SuperAdminSitesPage() {
                   {/* Plant Quick Metrics */}
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="p-3 rounded-xl bg-slate-50 border border-smart-border">
-                      <span className="text-smart-muted text-[11px] font-bold">Fleet Headroom</span>
+                      <span className="text-smart-muted text-[11px] font-bold">Ride Headroom</span>
                       <p className="text-base font-black text-smart-navy mt-0.5">
                         {selectedPlant.connectedVehicles} Vehicles
                       </p>
@@ -850,7 +850,7 @@ export default function SuperAdminSitesPage() {
                 </div>
               ) : (
                 <div className="smart-glass-card p-8 text-center text-xs text-smart-muted">
-                  Select a plant from the table to view real-time fleet configuration.
+                  Select a plant from the table to view real-time ride configuration.
                 </div>
               )}
             </div>

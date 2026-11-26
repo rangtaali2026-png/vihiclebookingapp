@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   manifest: "/manifest.json",
   themeColor: "#020617",
-  title: 'Plant Transit & Fleet Management System',
+  title: 'Plant Transit & Ride Management System',
   description: 'Enterprise multi-tenant fleet and transit management for Gujarat manufacturing hubs.',
 };
 

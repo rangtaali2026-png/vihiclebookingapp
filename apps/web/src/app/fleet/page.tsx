@@ -258,13 +258,13 @@ export default function FleetManagementPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold tracking-widest text-smart-blue uppercase bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                Fleet Controller
+                Ride Controller
               </span>
               <span className="text-smart-muted">•</span>
               <span className="text-xs text-smart-muted font-medium">{session?.siteName || 'Vadodara Chemical Complex'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-smart-navy tracking-tight mt-1">
-              Fleet Asset & Permanent Driver Roster
+              Ride Asset & Permanent Driver Roster
             </h1>
             <p className="text-xs sm:text-sm text-smart-muted mt-0.5">
               Manage plant transit cars, buses, and verified commercial driving licenses.
@@ -324,7 +324,7 @@ export default function FleetManagementPage() {
           </button>
         </div>
 
-        {/* Fleet Management Table */}
+        {/* Ride Management Table */}
         <div className="smart-glass-card p-0 overflow-hidden shadow-smart">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -342,7 +342,7 @@ export default function FleetManagementPage() {
               <tbody className="divide-y divide-smart-border text-smart-navy">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-smart-muted">Loading fleet inventory...</td>
+                    <td colSpan={7} className="py-8 text-center text-smart-muted">Loading ride inventory...</td>
                   </tr>
                 ) : filteredVehicles.length === 0 ? (
                   <tr>
@@ -454,7 +454,7 @@ export default function FleetManagementPage() {
                   <Car className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-smart-navy">Add Fleet Vehicle</h3>
+                  <h3 className="text-base font-black text-smart-navy">Add Ride Vehicle</h3>
                   <p className="text-xs text-smart-muted">Register vehicle asset & link dedicated driver.</p>
                 </div>
               </div>

@@ -45,7 +45,7 @@ export default function DispatchPage() {
       setLoading(true);
       const [bookingsRes, vehiclesRes, driversRes] = await Promise.all([
         fetchApi<{ success: boolean; bookings: Booking[] }>('/api/bookings'),
-        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/fleet/vehicles'),
+        fetchApi<{ success: boolean; vehicles: Vehicle[] }>('/api/ride/vehicles'),
         fetchApi<{ success: boolean; drivers: Driver[] }>('/api/drivers?site_id=11111111-1111-1111-1111-111111111111'),
       ]);
 
@@ -162,7 +162,7 @@ export default function DispatchPage() {
               <span className="text-sm font-semibold text-slate-800">Dispatch Operations</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-smart-navy tracking-tight mt-1">Admin Dispatch & Operations Console</h1>
-            <p className="text-sm text-slate-600">Allocate drivers, assign fleet assets, and verify passenger boarding manifests</p>
+            <p className="text-sm text-slate-600">Allocate drivers, assign ride assets, and verify passenger boarding manifests</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -175,7 +175,7 @@ export default function DispatchPage() {
               href="/fleet"
               className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
             >
-              Fleet Assets →
+              Ride Assets →
             </Link>
           </div>
         </div>
@@ -352,7 +352,7 @@ export default function DispatchPage() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-semibold text-white">
-                  Assign Fleet Assets: {assigningBooking.booking_reference}
+                  Assign Ride Assets: {assigningBooking.booking_reference}
                 </h3>
                 <p className="text-xs text-slate-400">
                   Required: {assigningBooking.target_category} • {assigningBooking.passenger_count} Passenger(s)

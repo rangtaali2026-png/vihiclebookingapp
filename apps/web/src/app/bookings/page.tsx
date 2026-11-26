@@ -237,7 +237,7 @@ export default function SmartDriveDashboard() {
               href="/dispatch"
               className="inline-flex items-center gap-2 smart-gradient-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-smart-lg hover:opacity-95 transition"
             >
-              <span>Fleet Operations</span>
+              <span>Ride Operations</span>
               <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
@@ -550,7 +550,7 @@ export default function SmartDriveDashboard() {
             <div className="smart-glass-card p-6 relative overflow-hidden bg-gradient-to-br from-white via-white to-blue-50/40 border border-smart-border">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold tracking-widest text-smart-blue uppercase bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
-                  Fleet Ready
+                  Ride Ready
                 </span>
                 <span className="text-xs font-black text-smart-navy">Gujarat Plant Pool</span>
               </div>

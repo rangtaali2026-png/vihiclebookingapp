@@ -39,7 +39,7 @@ export default function VehicleQrCardsPage() {
           <div>
             <div className="flex items-center gap-2">
               <Link href="/fleet" className="text-sm font-medium text-slate-500 hover:text-slate-800">
-                ← Fleet Assets
+                ← Ride Assets
               </Link>
               <span className="text-slate-300">/</span>
               <span className="text-sm font-semibold text-slate-800">QR Placards</span>
@@ -57,7 +57,7 @@ export default function VehicleQrCardsPage() {
         </div>
 
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500 bg-white rounded-xl">Loading fleet assets...</div>
+          <div className="p-12 text-center text-sm text-slate-500 bg-white rounded-xl">Loading ride assets...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 print:grid-cols-2 print:gap-4">
             {vehicles.map((v) => {
