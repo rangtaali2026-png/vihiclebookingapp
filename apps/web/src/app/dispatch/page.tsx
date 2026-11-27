@@ -49,6 +49,7 @@ export default function DispatchPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [dispatchTab, setDispatchTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
+  const [viewingRequestForm, setViewingRequestForm] = useState<any | null>(null);
 
   // Assignment Modal State
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
@@ -370,13 +371,14 @@ export default function DispatchPage() {
                     <tr key={b.id} className="hover:bg-slate-50/75 transition">
                       <td className="py-3 px-4">
                         <div className="space-y-0.5 mb-1">
-                          <Link
-                            href={`/track?id=${encodeURIComponent(b.id)}`}
-                            title="Open Booking & Live Transit Radar"
-                            className="font-mono text-xs font-black text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 block"
+                          <button
+                            type="button"
+                            onClick={() => setViewingRequestForm(b)}
+                            title="View Submitted Vehicle Request Form & Approval Details"
+                            className="font-mono text-xs font-black text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 block text-left cursor-pointer"
                           >
-                            {b.booking_reference || 'PENDING-REF'}
-                          </Link>
+                            {b.booking_reference || \'PENDING-REF\'}
+                          </button>
                           <span className="font-bold text-slate-900 text-xs block">
                             {b.employee_name || b.booking_passengers?.[0]?.employee_name || 'Employee'}
                           </span>
@@ -435,7 +437,7 @@ export default function DispatchPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right space-x-2">
-                        {b.status === 'PENDING' && (
+                        {(b.status === 'PENDING' || b.status === 'APPROVED') && (
                           <button
                             type="button"
                             onClick={() => openAssignModal(b)}
@@ -895,6 +897,162 @@ export default function DispatchPage() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+    
+      {/* Submitted Vehicle Request Form & Approval Detail Modal */}
+      {viewingRequestForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 text-xs">
+            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
+              <div>
+                <span className="font-mono text-xs font-black text-blue-600 uppercase tracking-wider">
+                  {viewingRequestForm.booking_reference}
+                </span>
+                <h2 className="text-lg font-black text-slate-900 mt-0.5">
+                  Submitted Vehicle Requisition Form
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  Submitted on {viewingRequestForm.created_at ? new Date(viewingRequestForm.created_at).toLocaleString('en-IN') : 'N/A'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingRequestForm(null)}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 font-bold hover:bg-slate-200"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 border border-slate-200/80 rounded-xl p-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Requester Name</span>
+                <span className="font-bold text-slate-900">{viewingRequestForm.employee_name || 'Employee'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Employee ID</span>
+                <span className="font-mono font-bold text-slate-900">{viewingRequestForm.employee_id || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Department</span>
+                <span className="font-bold text-slate-900">{viewingRequestForm.department || 'General'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Mobile Number</span>
+                <span className="font-mono font-bold text-slate-900">{viewingRequestForm.mobile || viewingRequestForm.employee_phone || 'N/A'}</span>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Email Address</span>
+                <span className="font-mono font-semibold text-slate-800">{viewingRequestForm.employee_email || 'Not Provided'}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-slate-200 rounded-xl p-4">
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Origin / Pickup Point</span>
+                <span className="font-bold text-slate-900">{viewingRequestForm.origin_location}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Destination</span>
+                <span className="font-bold text-slate-900">{viewingRequestForm.destination_location}</span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Departure Date &amp; Time</span>
+                <span className="font-semibold text-slate-800">
+                  {viewingRequestForm.scheduled_start_time ? new Date(viewingRequestForm.scheduled_start_time).toLocaleString('en-IN') : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Return Date &amp; Time</span>
+                <span className="font-semibold text-slate-800">
+                  {viewingRequestForm.scheduled_end_time
+                    ? new Date(viewingRequestForm.scheduled_end_time).toLocaleString('en-IN')
+                    : viewingRequestForm.return_date || 'Same Day / N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Booking Type &amp; Category</span>
+                <span className="font-bold text-slate-800">
+                  {viewingRequestForm.booking_type || 'PRIVATE'} • {viewingRequestForm.target_category || 'SEDAN_4'} ({viewingRequestForm.trip_type || 'One Way Trip'})
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Passenger Count</span>
+                <span className="font-bold text-slate-800">{viewingRequestForm.passenger_count || 1} Traveler(s)</span>
+              </div>
+              <div className="sm:col-span-2 pt-2 border-t border-slate-100">
+                <span className="text-[10px] font-bold uppercase text-slate-400 block">Purpose of Travel</span>
+                <p className="font-semibold text-slate-900 mt-0.5">
+                  {viewingRequestForm.purpose_of_travel || viewingRequestForm.purpose || 'Official Duty'}
+                </p>
+              </div>
+            </div>
+
+            {Array.isArray(viewingRequestForm.passenger_manifest) && viewingRequestForm.passenger_manifest.length > 0 && (
+              <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                <span className="text-[10px] font-black uppercase text-slate-500 block">Passenger Manifest</span>
+                <div className="divide-y divide-slate-100">
+                  {viewingRequestForm.passenger_manifest.map((p: any, i: number) => (
+                    <div key={i} className="py-1.5 flex items-center justify-between">
+                      <span className="font-bold text-slate-900">
+                        {i + 1}. {p.name || p.passenger_name} ({p.employee_id || 'GUEST'})
+                      </span>
+                      <span className="text-slate-500 font-mono">
+                        {p.department || ''} {p.mobile ? `• ${p.mobile}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50/50 border border-blue-200/80 rounded-xl p-4 space-y-1.5">
+              <span className="text-[10px] font-black uppercase text-blue-800 block">Approval Sign-Off Audit Trail</span>
+              <p className="text-slate-700">
+                <strong>FH Status:</strong> {viewingRequestForm.fh_approval_status || 'N/A'}
+                {viewingRequestForm.fh_remarks ? ` — "${viewingRequestForm.fh_remarks}"` : ''}
+              </p>
+              <p className="text-slate-700">
+                <strong>UH Status:</strong> {viewingRequestForm.uh_approval_status || 'N/A'}
+                {viewingRequestForm.uh_remarks ? ` — "${viewingRequestForm.uh_remarks}"` : ''}
+              </p>
+              <p className="text-slate-700">
+                <strong>FH-HR / Admin Status:</strong> {viewingRequestForm.admin_hr_approval_status || viewingRequestForm.status}
+                {viewingRequestForm.admin_hr_remarks ? ` — "${viewingRequestForm.admin_hr_remarks}"` : ''}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              {(viewingRequestForm.status === 'PENDING' || viewingRequestForm.status === 'APPROVED') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = viewingRequestForm;
+                    setViewingRequestForm(null);
+                    openAssignModal(target);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-black hover:bg-blue-700"
+                >
+                  Assign &amp; Dispatch
+                </button>
+              )}
+              <a
+                href={`/track?id=${encodeURIComponent(viewingRequestForm.id)}`}
+                className="px-4 py-2 rounded-xl border border-purple-200 bg-purple-50 text-purple-700 font-bold hover:bg-purple-100"
+              >
+                📡 Open Live Transit Radar
+              </a>
+              <button
+                type="button"
+                onClick={() => setViewingRequestForm(null)}
+                className="px-5 py-2 rounded-xl bg-slate-900 text-white font-black hover:bg-slate-800"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
