@@ -11,6 +11,11 @@ type DispatchBooking = Booking & {
   fh_remarks?: string | null;
   uh_remarks?: string | null;
   admin_hr_remarks?: string | null;
+  employee_id?: string | null;
+  employee_name?: string | null;
+  department?: string | null;
+  mobile?: string | null;
+  employee_phone?: string | null;
 };
 
 type ManifestBooking = DispatchBooking & {
@@ -364,7 +369,26 @@ export default function DispatchPage() {
                   {filteredDispatchBookings.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/75 transition">
                       <td className="py-3 px-4">
-                        <span className="font-mono font-medium text-white">{b.booking_reference}</span>
+                        <div className="space-y-0.5 mb-1">
+                          <Link
+                            href={`/track?id=${encodeURIComponent(b.id)}`}
+                            title="Open Booking & Live Transit Radar"
+                            className="font-mono text-xs font-black text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 block"
+                          >
+                            {b.booking_reference || 'PENDING-REF'}
+                          </Link>
+                          <span className="font-bold text-slate-900 text-xs block">
+                            {b.employee_name || b.booking_passengers?.[0]?.employee_name || 'Employee'}
+                          </span>
+                          <span className="text-[11px] text-slate-500 block">
+                            {b.employee_id || 'EMP'} &bull; {b.department || 'General'}
+                          </span>
+                          {(b.mobile || b.employee_phone) && (
+                            <span className="font-mono text-[11px] text-slate-500 block">
+                              {b.mobile || b.employee_phone}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-400">{b.booking_type} • {b.target_category}</div>
                       </td>
                       <td className="py-3 px-4 text-xs">
@@ -373,7 +397,7 @@ export default function DispatchPage() {
                       </td>
                       <td className="py-3 px-4 text-xs">
                         {b.vehicles ? (
-                          <div className="font-medium text-white">
+                          <div className="font-bold text-slate-900">
                             {b.vehicles.registration_number} <span className="text-slate-400">({b.vehicles.model})</span>
                           </div>
                         ) : (
@@ -466,21 +490,25 @@ export default function DispatchPage() {
                             )}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleViewNotifications(b.id, b.booking_reference)}
-                          className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
-                          title="View Dispatch Notifications"
-                        >
-                          📩 Alerts
-                        </button>
-                        <Link
-                          href={`/track?id=${encodeURIComponent(b.id)}`}
-                          className="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
-                          title="Open Live Transit Radar"
-                        >
-                          📡 Track
-                        </Link>
+                        <div className="inline-flex items-center justify-end gap-1.5 flex-wrap mt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewNotifications(b.id, b.booking_reference)}
+                            className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-100 transition"
+                            title="View Dispatch Notifications"
+                          >
+                            <span>📩</span>
+                            <span>Alerts</span>
+                          </button>
+                          <Link
+                            href={`/track?id=${encodeURIComponent(b.id)}`}
+                            className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-bold text-purple-700 hover:bg-purple-100 transition"
+                            title="Open Live Transit Radar"
+                          >
+                            <span>📡</span>
+                            <span>Track</span>
+                          </Link>
+                        </div>
                         
                         {b.status === 'DISPATCHED' && (
                           <>
