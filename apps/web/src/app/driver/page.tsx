@@ -47,10 +47,17 @@ export default function DriverPortalPage() {
     }
   }, []);
 
-  // Stream live GPS coordinates to Worker whenever activeTrip is IN_PROGRESS
+  // Stream live GPS coordinates to Worker whenever activeTrip is IN_PROGRESS (watchPosition + 4s heartbeat)
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [gpsErrorDetail, setGpsErrorDetail] = useState<string | null>(null);
+
   useEffect(() => {
     const currentTrip = trips.find((t) => t.id === selectedTripId) || trips[0];
-    const isRunning = Boolean(currentTrip && (currentTrip.trip_started_at || currentTrip.status === 'IN_PROGRESS') && currentTrip.status !== 'COMPLETED');
+    const isRunning = Boolean(
+      currentTrip &&
+        (currentTrip.trip_started_at || currentTrip.status === 'IN_PROGRESS') &&
+        currentTrip.status !== 'COMPLETED'
+    );
 
     if (!isRunning || typeof window === 'undefined' || !('geolocation' in navigator)) {
       setGpsBeaconStatus('STANDBY');
@@ -58,36 +65,64 @@ export default function DriverPortalPage() {
       return;
     }
 
-    setGpsBeaconStatus('STREAMING');
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        // Convert m/s to km/h
-        const speedKmh = pos.coords.speed && pos.coords.speed > 0 ? Math.round(pos.coords.speed * 3.6) : 0;
-        setLiveSpeedKmh(speedKmh);
-        setLastGpsCoords({ lat, lng });
-        setGpsBeaconStatus('STREAMING');
+    const pushCoords = (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const speedKmh = pos.coords.speed && pos.coords.speed > 0 ? Math.round(pos.coords.speed * 3.6) : 0;
+      setLiveSpeedKmh(speedKmh);
+      setLastGpsCoords({ lat, lng });
+      setGpsBeaconStatus('STREAMING');
+      setGpsErrorDetail(null);
 
-        fetchApi(`/api/bookings/${currentTrip.id}/telemetry`, {
-          method: 'POST',
-          body: JSON.stringify({
-            lat,
-            lng,
-            speed_kmh: speedKmh,
-            heading: pos.coords.heading || 0,
-            vehicle_id: currentTrip.allotted_vehicle_id
-          })
-        }).catch(() => {});
-      },
-      () => {
-        setGpsBeaconStatus('ERROR');
-      },
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
-    );
+      fetchApi(`/api/bookings/${currentTrip.id}/telemetry`, {
+        method: 'POST',
+        body: JSON.stringify({
+          lat,
+          lng,
+          speed_kmh: speedKmh,
+          heading: pos.coords.heading || 0,
+          vehicle_id: currentTrip.allotted_vehicle_id
+        })
+      })
+        .then(() => {
+          setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
+        })
+        .catch(() => {});
+    };
+
+    const handleGpsErr = (err: GeolocationPositionError) => {
+      setGpsBeaconStatus('ERROR');
+      setGpsErrorDetail(err.message || 'Location permission denied or unavailable');
+    };
+
+    setGpsBeaconStatus('STREAMING');
+
+    // Immediate initial GPS fix
+    navigator.geolocation.getCurrentPosition(pushCoords, handleGpsErr, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    });
+
+    // Continuous watchPosition stream
+    const watchId = navigator.geolocation.watchPosition(pushCoords, handleGpsErr, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    });
+
+    // 4-second heartbeat fallback for mobile browsers that throttle watchPosition
+    const heartbeat = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(pushCoords, handleGpsErr, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 8000
+      });
+    }, 4000);
 
     return () => {
       navigator.geolocation.clearWatch(watchId);
+      clearInterval(heartbeat);
     };
   }, [trips, selectedTripId]);
 
@@ -656,7 +691,7 @@ export default function DriverPortalPage() {
                     </div>
                     {lastGpsCoords && (
                       <p className="text-[11px] font-mono text-slate-400">
-                        Coords: {lastGpsCoords.lat.toFixed(5)}, {lastGpsCoords.lng.toFixed(5)}
+                        Coords: {lastGpsCoords.lat.toFixed(5)}, {lastGpsCoords.lng.toFixed(5)} {lastSyncTime ? `• Synced ${lastSyncTime}` : ''}
                       </p>
                     )}
                   </div>
