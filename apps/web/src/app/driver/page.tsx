@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchApi } from '@/lib/api';
 import {
   Car, Phone, Lock, Send, CheckCircle2, Play, User,
-  MapPin, Calendar, Clock, RefreshCw, LogOut, ShieldCheck, KeyRound
+  MapPin, RefreshCw, LogOut, ShieldCheck, KeyRound, Flag, Gauge
 } from 'lucide-react';
 
 interface DriverSession {
@@ -25,7 +25,9 @@ export default function DriverPortalPage() {
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
-  const [odometerInputs, setOdometerInputs] = useState<Record<string, string>>({});
+  const [startOdoInputs, setStartOdoInputs] = useState<Record<string, string>>({});
+  const [endOdoInputs, setEndOdoInputs] = useState<Record<string, string>>({});
+  const [completedSummary, setCompletedSummary] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [bannerMsg, setBannerMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -77,7 +79,7 @@ export default function DriverPortalPage() {
       );
       const list = Array.isArray(res?.trips) ? res.trips : [];
       setTrips(list);
-      if (list.length > 0 && !selectedTripId) {
+      if (list.length > 0 && (!selectedTripId || !list.some((t) => t.id === selectedTripId))) {
         setSelectedTripId(list[0].id);
       }
     } catch (err) {
@@ -119,7 +121,7 @@ export default function DriverPortalPage() {
       });
       setBannerMsg({
         type: 'ok',
-        text: 'OTP verified! Passenger is now ONBOARDED. Press Start Trip when ready to depart.'
+        text: 'OTP verified! Passenger is now ONBOARDED. Enter starting odometer (optional) and press Start Trip.'
       });
       if (driver) await loadDriverTrips(driver.id);
     } catch (err: any) {
@@ -133,18 +135,68 @@ export default function DriverPortalPage() {
     setActionLoading(bookingId);
     setBannerMsg(null);
     try {
-      const odo = odometerInputs[bookingId] ? Number(odometerInputs[bookingId]) : undefined;
+      const odo =
+        startOdoInputs[bookingId] !== undefined && startOdoInputs[bookingId] !== ''
+          ? Number(startOdoInputs[bookingId])
+          : 0;
       await fetchApi(`/api/bookings/${bookingId}/start-trip`, {
         method: 'POST',
         body: JSON.stringify({ start_odometer_km: odo })
       });
       setBannerMsg({
         type: 'ok',
-        text: 'Trip STARTED! Have a safe journey.'
+        text: `Trip STARTED (Starting Odometer: ${odo} km). Enter closing odometer reading upon arrival to end the trip.`
       });
       if (driver) await loadDriverTrips(driver.id);
     } catch (err: any) {
       setBannerMsg({ type: 'err', text: err.message || 'Failed to start trip' });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEndTrip = async (booking: any) => {
+    const rawEnd = endOdoInputs[booking.id];
+    if (rawEnd === undefined || rawEnd.trim() === '') {
+      setBannerMsg({ type: 'err', text: 'Please enter the closing odometer reading (km) before ending the trip.' });
+      return;
+    }
+    const endOdo = Number(rawEnd);
+    const startOdo = Number(booking.start_odometer_km || 0);
+    if (Number.isNaN(endOdo) || endOdo < startOdo) {
+      setBannerMsg({
+        type: 'err',
+        text: `Closing odometer (${endOdo} km) cannot be less than starting odometer (${startOdo} km).`
+      });
+      return;
+    }
+
+    setActionLoading(booking.id);
+    setBannerMsg(null);
+    try {
+      const res = await fetchApi<{ billed_distance_km?: number; booking?: any }>(
+        `/api/bookings/${booking.id}/end-trip`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ end_odometer_km: endOdo })
+        }
+      );
+      const dist = res?.billed_distance_km ?? Number((endOdo - startOdo).toFixed(2));
+      setCompletedSummary({
+        booking_reference: booking.booking_reference,
+        employee_name: booking.employee_name || 'Passenger',
+        route: `${booking.origin_location} → ${booking.destination_location}`,
+        start_odometer_km: startOdo,
+        end_odometer_km: endOdo,
+        billed_distance_km: dist
+      });
+      setBannerMsg({
+        type: 'ok',
+        text: `Trip ${booking.booking_reference} COMPLETED! Total Distance: ${dist} km.`
+      });
+      if (driver) await loadDriverTrips(driver.id);
+    } catch (err: any) {
+      setBannerMsg({ type: 'err', text: err.message || 'Failed to end trip' });
     } finally {
       setActionLoading(null);
     }
@@ -157,6 +209,7 @@ export default function DriverPortalPage() {
     setDriver(null);
     setTrips([]);
     setSelectedTripId(null);
+    setCompletedSummary(null);
   };
 
   // =========================================================================
@@ -232,7 +285,7 @@ export default function DriverPortalPage() {
   }
 
   // =========================================================================
-  // LOGGED-IN DRIVER CONSOLE (SELECT PASSENGER -> SEND OTP -> ONBOARD -> START)
+  // LOGGED-IN DRIVER CONSOLE
   // =========================================================================
   const activeTrip = trips.find((t) => t.id === selectedTripId) || trips[0] || null;
 
@@ -284,6 +337,43 @@ export default function DriverPortalPage() {
           </div>
         )}
 
+        {/* Completed Trip Receipt Card */}
+        {completedSummary && (
+          <div className="bg-emerald-600 text-white rounded-2xl p-5 shadow-md space-y-3 text-xs">
+            <div className="flex items-center justify-between border-b border-emerald-500 pb-2.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="text-sm font-black">Trip Log Submitted — {completedSummary.booking_reference}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCompletedSummary(null)}
+                className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-[11px] font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <span className="text-emerald-200 block text-[10px] uppercase font-bold">Passenger</span>
+                <span className="font-bold">{completedSummary.employee_name}</span>
+              </div>
+              <div>
+                <span className="text-emerald-200 block text-[10px] uppercase font-bold">Start Odometer</span>
+                <span className="font-mono font-bold">{completedSummary.start_odometer_km} km</span>
+              </div>
+              <div>
+                <span className="text-emerald-200 block text-[10px] uppercase font-bold">Closing Odometer</span>
+                <span className="font-mono font-bold">{completedSummary.end_odometer_km} km</span>
+              </div>
+              <div>
+                <span className="text-emerald-200 block text-[10px] uppercase font-bold">Total Distance</span>
+                <span className="font-mono text-base font-black">{completedSummary.billed_distance_km} km</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Step 1: Select Assigned Passenger / Trip */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
@@ -296,7 +386,7 @@ export default function DriverPortalPage() {
             <p className="text-xs text-slate-500 py-4">Loading assigned trips...</p>
           ) : trips.length === 0 ? (
             <div className="p-6 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
-              No active dispatched trips assigned to your mobile number yet.
+              No active dispatched trips assigned to your mobile number right now.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -349,11 +439,17 @@ export default function DriverPortalPage() {
           )}
         </div>
 
-        {/* Step 2 & 3: Send 6-Digit OTP -> Verify & Onboard -> Start Trip */}
+        {/* Steps 2, 3, 4 & 5: OTP -> Onboard -> Start Trip -> End Trip */}
         {activeTrip && (() => {
           const isOtpSent = Boolean(activeTrip.boarding_otp);
           const isOnboarded = Boolean(activeTrip.passenger_onboarded_at);
           const isStarted = Boolean(activeTrip.trip_started_at || activeTrip.status === 'IN_PROGRESS');
+          const startOdoVal = Number(activeTrip.start_odometer_km || 0);
+          const enteredEndOdo = endOdoInputs[activeTrip.id];
+          const computedDistance =
+            enteredEndOdo !== undefined && enteredEndOdo !== '' && !Number.isNaN(Number(enteredEndOdo))
+              ? Number((Number(enteredEndOdo) - startOdoVal).toFixed(2))
+              : null;
 
           return (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5 text-xs">
@@ -446,16 +542,16 @@ export default function DriverPortalPage() {
               </div>
 
               {/* Step 4: Start Trip Button */}
-              <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 flex flex-wrap items-center justify-between gap-3">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <span className="font-black text-slate-900 text-sm block">
                     4. Start Official Trip
                   </span>
                   <span className="text-slate-600 block">
                     {isStarted
-                      ? `Trip started at ${new Date(activeTrip.trip_started_at).toLocaleTimeString('en-IN')}`
+                      ? `Trip started at ${new Date(activeTrip.trip_started_at).toLocaleTimeString('en-IN')} • Start Odometer: ${startOdoVal} km`
                       : isOnboarded
-                      ? 'Passenger verified and onboarded. Ready to start trip.'
+                      ? 'Passenger verified and onboarded. Enter starting odometer & start trip.'
                       : 'Complete OTP verification above to unlock Start Trip.'}
                   </span>
                 </div>
@@ -464,12 +560,13 @@ export default function DriverPortalPage() {
                   {!isStarted && (
                     <input
                       type="number"
-                      value={odometerInputs[activeTrip.id] || ''}
+                      min={0}
+                      value={startOdoInputs[activeTrip.id] || ''}
                       onChange={(e) =>
-                        setOdometerInputs((prev) => ({ ...prev, [activeTrip.id]: e.target.value }))
+                        setStartOdoInputs((prev) => ({ ...prev, [activeTrip.id]: e.target.value }))
                       }
                       placeholder="Start Odo (km)"
-                      className="w-32 px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900"
+                      className="w-36 px-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-xs font-bold text-slate-900"
                     />
                   )}
                   <button
@@ -479,9 +576,73 @@ export default function DriverPortalPage() {
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black hover:bg-slate-800 disabled:opacity-40 transition shadow-sm"
                   >
                     <Play className="w-4 h-4" />
-                    {isStarted ? 'Trip In Progress' : 'Start Trip'}
+                    {isStarted ? 'Trip Started' : 'Start Trip'}
                   </button>
                 </div>
+              </div>
+
+              {/* Step 5: End Trip & Closing Odometer */}
+              <div
+                className={`p-4 rounded-xl border space-y-3 ${
+                  isStarted
+                    ? 'bg-emerald-50/70 border-emerald-300'
+                    : 'bg-slate-50 border-slate-200 opacity-70'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-black text-slate-900 text-sm block">
+                      5. End Trip &amp; Record Closing Odometer
+                    </span>
+                    <span className="text-slate-600">
+                      {isStarted
+                        ? `Enter closing odometer reading (Start: ${startOdoVal} km) to auto-calculate trip distance.`
+                        : 'Available once the trip has been started.'}
+                    </span>
+                  </div>
+
+                  {computedDistance !== null && isStarted && (
+                    <div
+                      className={`px-3.5 py-1.5 rounded-xl border font-mono text-xs font-black ${
+                        computedDistance >= 0
+                          ? 'bg-white border-emerald-300 text-emerald-800'
+                          : 'bg-rose-50 border-rose-300 text-rose-700'
+                      }`}
+                    >
+                      {computedDistance >= 0
+                        ? `Calculated Distance: ${computedDistance} km`
+                        : 'Closing Odo < Start Odo'}
+                    </div>
+                  )}
+                </div>
+
+                {isStarted && (
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <div className="relative flex-1 min-w-[200px]">
+                      <Gauge className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="number"
+                        min={startOdoVal}
+                        step="0.1"
+                        value={endOdoInputs[activeTrip.id] || ''}
+                        onChange={(e) =>
+                          setEndOdoInputs((prev) => ({ ...prev, [activeTrip.id]: e.target.value }))
+                        }
+                        placeholder={`Closing Odometer (min ${startOdoVal} km)`}
+                        className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 bg-white font-mono text-sm font-black text-slate-900"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={actionLoading === activeTrip.id}
+                      onClick={() => handleEndTrip(activeTrip)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 disabled:opacity-50 transition shadow-sm"
+                    >
+                      <Flag className="w-4 h-4" />
+                      End Trip &amp; Submit Distance
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );

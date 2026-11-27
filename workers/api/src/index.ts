@@ -2481,6 +2481,97 @@ export default {
         }
       }
 
+      // POST /api/bookings/:id/end-trip (Complete Trip, Closing Odometer & Auto Distance)
+      if (request.method === 'POST' && path.startsWith('/api/bookings/') && path.endsWith('/end-trip')) {
+        try {
+          const bookingId = path.split('/')[3];
+          const body = await request.json().catch(() => ({})) as { end_odometer_km?: number };
+
+          if (body.end_odometer_km === undefined || body.end_odometer_km === null || String(body.end_odometer_km).trim() === '') {
+            return jsonResponse({ error: 'Please enter the closing odometer reading (km) before ending the trip.' }, 400, corsHeaders);
+          }
+
+          const endOdo = Number(body.end_odometer_km);
+          if (Number.isNaN(endOdo) || endOdo < 0) {
+            return jsonResponse({ error: 'Closing odometer reading must be a valid non-negative number.' }, 400, corsHeaders);
+          }
+
+          const { data: booking, error: fetchErr } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .single();
+
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+          }
+
+          if (!booking.trip_started_at && booking.status !== 'IN_PROGRESS') {
+            return jsonResponse({ error: 'Trip must be started before it can be ended.' }, 400, corsHeaders);
+          }
+
+          const startOdo = Number(booking.start_odometer_km || 0);
+          if (endOdo < startOdo) {
+            return jsonResponse({
+              error: `Closing odometer (${endOdo} km) cannot be less than starting odometer (${startOdo} km).`
+            }, 400, corsHeaders);
+          }
+
+          const totalDistanceKm = Number((endOdo - startOdo).toFixed(2));
+          const nowIso = new Date().toISOString();
+
+          let { data: updated, error: upErr } = await supabase
+            .from('bookings')
+            .update({
+              status: 'COMPLETED',
+              end_odometer_km: endOdo,
+              billed_distance_km: totalDistanceKm,
+              trip_ended_at: nowIso,
+              updated_at: nowIso
+            })
+            .eq('id', bookingId)
+            .select()
+            .single();
+
+          if (upErr && upErr.message && upErr.message.includes('booking_status')) {
+            const retry = await supabase
+              .from('bookings')
+              .update({
+                end_odometer_km: endOdo,
+                billed_distance_km: totalDistanceKm,
+                trip_ended_at: nowIso,
+                updated_at: nowIso
+              })
+              .eq('id', bookingId)
+              .select()
+              .single();
+            updated = retry.data;
+            upErr = retry.error;
+          }
+
+          if (upErr) {
+            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+          }
+
+          // Release allotted vehicle back to AVAILABLE status and update its odometer
+          if (booking.allotted_vehicle_id) {
+            await supabase
+              .from('vehicles')
+              .update({ status: 'AVAILABLE', current_odometer_km: endOdo })
+              .eq('id', booking.allotted_vehicle_id);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `Trip completed! Total distance recorded: ${totalDistanceKm} km.`,
+            billed_distance_km: totalDistanceKm,
+            booking: updated
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to complete trip' }, 500, corsHeaders);
+        }
+      }
+
       // GET /api/bookings/track?employee_id=...&mobile=... (Employee Self-Service Status Tracker)
       if (request.method === 'GET' && path === '/api/bookings/track') {
         try {

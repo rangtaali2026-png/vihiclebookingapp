@@ -976,6 +976,8 @@ export default function VehicleRequestFormPage() {
 
                   const overallLabel = isRejected
                     ? 'REJECTED'
+                    : b.status === 'COMPLETED'
+                    ? 'TRIP COMPLETED'
                     : (b.trip_started_at || b.status === 'IN_PROGRESS')
                     ? 'TRIP IN PROGRESS'
                     : b.passenger_onboarded_at
@@ -1059,6 +1061,16 @@ export default function VehicleRequestFormPage() {
                           <div className="px-4 py-1.5 rounded-lg bg-white text-blue-700 font-mono text-lg font-black tracking-widest">
                             {b.boarding_otp}
                           </div>
+                        </div>
+                      )}
+
+                                            {b.status === 'COMPLETED' && (
+                        <div className="p-3 rounded-lg bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                          <span className="font-black">Trip Completed</span>
+                          <span className="font-mono">
+                            Odometer: {b.start_odometer_km || 0} → {b.end_odometer_km || 0} km •{' '}
+                            <strong className="text-emerald-400">Total Distance: {b.billed_distance_km || 0} km</strong>
+                          </span>
                         </div>
                       )}
 
