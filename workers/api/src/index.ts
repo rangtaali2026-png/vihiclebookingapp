@@ -2669,7 +2669,88 @@ export default {
           }
 
           if (upErr) {
-            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+                      // Send Cab & Driver Allotment Email to Employee when Dispatched (non-blocking)
+          if (updated && updated.status === 'DISPATCHED') {
+            (async () => {
+              try {
+                const { data: emailCfg } = await supabase
+                  .from('email_configurations')
+                  .select('is_enabled, notify_on_dispatch')
+                  .eq('is_enabled', true)
+                  .order('updated_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                if (!emailCfg || emailCfg.notify_on_dispatch === false) return;
+
+                const [{ data: veh }, { data: drv }] = await Promise.all([
+                  updated.allotted_vehicle_id
+                    ? supabase.from('vehicles').select('registration_number, model, seat_capacity').eq('id', updated.allotted_vehicle_id).maybeSingle()
+                    : Promise.resolve({ data: null }),
+                  updated.allotted_driver_id
+                    ? supabase.from('drivers').select('name, mobile_number').eq('id', updated.allotted_driver_id).maybeSingle()
+                    : Promise.resolve({ data: null })
+                ]);
+
+                const recipients: string[] = [];
+                if (updated.employee_email) recipients.push(updated.employee_email);
+                if (Array.isArray(updated.passenger_manifest)) {
+                  for (const p of updated.passenger_manifest) {
+                    if (p?.email) recipients.push(p.email);
+                  }
+                }
+
+                const uniqueRecipients = Array.from(new Set(recipients.map((e) => String(e).trim()).filter((e) => e.includes('@'))));
+                if (uniqueRecipients.length === 0) return;
+
+                const cabReg = veh?.registration_number || 'Assigned Cab';
+                const cabModel = veh?.model || updated.target_category || 'Vehicle';
+                const driverName = drv?.name || 'Assigned Chauffeur';
+                const driverPhone = drv?.mobile_number || 'N/A';
+
+                await sendSystemEmail(
+                  supabase,
+                  uniqueRecipients,
+                  `[SmartDrive] Cab Allotted for ${updated.booking_reference} (${cabReg})`,
+                  `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;">
+                    <div style="background:#059669;color:#ffffff;padding:14px 18px;border-radius:10px;margin-bottom:18px;">
+                      <h2 style="margin:0;font-size:18px;">Cab &amp; Chauffeur Dispatched — ${updated.booking_reference}</h2>
+                      <p style="margin:4px 0 0;font-size:12px;opacity:0.9;">Your travel requisition has been approved and allotted by FH-HR / Admin.</p>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#1e293b;margin-bottom:16px;">
+                      <tr>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:40%;"><strong>Passenger</strong></td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${updated.employee_name || 'Employee'} (${updated.employee_id || 'N/A'})</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Route</strong></td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${updated.origin_location} &rarr; ${updated.destination_location}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Allotted Vehicle</strong></td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;"><strong>${cabReg}</strong> (${cabModel})</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Chauffeur Name</strong></td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;"><strong>${driverName}</strong></td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Chauffeur Mobile</strong></td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;"><a href="tel:${driverPhone}" style="color:#2563eb;font-weight:bold;text-decoration:none;">${driverPhone}</a></td>
+                      </tr>
+                    </table>
+                    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;font-size:12px;color:#1e40af;">
+                      <strong>Boarding OTP Notice:</strong> When your chauffeur arrives at the pickup point and taps <em>Send OTP</em>, open <strong>Check Request Status</strong> on the SmartDrive portal with your Employee ID and Mobile Number to view your 6-digit boarding OTP.
+                    </div>
+                  </div>`
+                );
+              } catch {
+                // Non-blocking email notification
+              }
+            })();
+          }
+
+          return jsonResponse({ error: upErr.message }, 500, corsHeaders);
           }
 
           return jsonResponse({

@@ -62,6 +62,7 @@ export default function VehicleRequestFormPage() {
   const [employeeId, setEmployeeId] = useState('');
   const [department, setDepartment] = useState('');
   const [contactNo, setContactNo] = useState('');
+  const [employeeEmail, setEmployeeEmail] = useState('');
 
   const [requestFor, setRequestFor] = useState<'Self' | 'Guest'>('Self');
   const [tripType, setTripType] = useState<'One Way Trip' | 'Round Trip'>('One Way Trip');
@@ -223,6 +224,7 @@ export default function VehicleRequestFormPage() {
         employee_id: employeeId,
         department,
         mobile: contactNo,
+        employee_email: employeeEmail.trim() || null,
         request_for: requestFor,
         trip_type: tripType,
         passenger_count: passengerCount,
@@ -392,6 +394,16 @@ export default function VehicleRequestFormPage() {
                   />
                 </div>
               )}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Official Email (For Cab Allotment Alerts)</label>
+                  <input
+                    type="email"
+                    value={employeeEmail}
+                    onChange={(e) => setEmployeeEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+                  />
+                </div>
             </div>
           </div>
 
