@@ -1079,7 +1079,7 @@ export default function VehicleRequestFormPage() {
                             </span>
                             <span className="text-xs text-blue-50">
                               {b.passenger_onboarded_at
-                                ? 'OTP verified by chauffeur. Enjoy your ride!'
+                                ? 'OTP verified by Driver. Enjoy your ride!'
                                 : 'Provide this OTP to your driver to confirm boarding & start trip.'}
                             </span>
                           </div>

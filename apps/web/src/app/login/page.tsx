@@ -208,7 +208,7 @@ export default function LoginPage() {
             className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:text-emerald-800"
           >
             <Car className="w-3.5 h-3.5" />
-            Chauffeur / Driver App Login →
+            Driver App Login →
           </a>
         </div>
       </div>
