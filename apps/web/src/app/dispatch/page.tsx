@@ -377,7 +377,7 @@ export default function DispatchPage() {
                             title="View Submitted Vehicle Request Form & Approval Details"
                             className="font-mono text-xs font-black text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 block text-left cursor-pointer"
                           >
-                            {b.booking_reference || \'PENDING-REF\'}
+                            {b.booking_reference || 'PENDING-REF'}
                           </button>
                           <span className="font-bold text-slate-900 text-xs block">
                             {b.employee_name || b.booking_passengers?.[0]?.employee_name || 'Employee'}
