@@ -31,6 +31,67 @@ export default function DriverPortalPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [bannerMsg, setBannerMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  // Live GPS Beacon & Speedometer Cockpit State
+  const [liveSpeedKmh, setLiveSpeedKmh] = useState<number>(0);
+  const [gpsBeaconStatus, setGpsBeaconStatus] = useState<'STANDBY' | 'STREAMING' | 'ERROR'>('STANDBY');
+  const [lastGpsCoords, setLastGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Support deep-linking from Live Transit Radar (?tripId=...)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const qTripId = params.get('tripId');
+      if (qTripId) {
+        setSelectedTripId(qTripId);
+      }
+    }
+  }, []);
+
+  // Stream live GPS coordinates to Worker whenever activeTrip is IN_PROGRESS
+  useEffect(() => {
+    const currentTrip = trips.find((t) => t.id === selectedTripId) || trips[0];
+    const isRunning = Boolean(currentTrip && (currentTrip.trip_started_at || currentTrip.status === 'IN_PROGRESS') && currentTrip.status !== 'COMPLETED');
+
+    if (!isRunning || typeof window === 'undefined' || !('geolocation' in navigator)) {
+      setGpsBeaconStatus('STANDBY');
+      setLiveSpeedKmh(0);
+      return;
+    }
+
+    setGpsBeaconStatus('STREAMING');
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // Convert m/s to km/h
+        const speedKmh = pos.coords.speed && pos.coords.speed > 0 ? Math.round(pos.coords.speed * 3.6) : 0;
+        setLiveSpeedKmh(speedKmh);
+        setLastGpsCoords({ lat, lng });
+        setGpsBeaconStatus('STREAMING');
+
+        fetchApi(`/api/bookings/${currentTrip.id}/telemetry`, {
+          method: 'POST',
+          body: JSON.stringify({
+            lat,
+            lng,
+            speed_kmh: speedKmh,
+            heading: pos.coords.heading || 0,
+            vehicle_id: currentTrip.allotted_vehicle_id
+          })
+        }).catch(() => {});
+      },
+      () => {
+        setGpsBeaconStatus('ERROR');
+      },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [trips, selectedTripId]);
+
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('driver_session');
@@ -580,6 +641,36 @@ export default function DriverPortalPage() {
                   </button>
                 </div>
               </div>
+
+                            {/* Live GPS Beacon & Speedometer Cockpit (Active when Trip Started) */}
+              {isStarted && (
+                <div className="p-4 rounded-2xl bg-slate-950 text-white flex flex-wrap items-center justify-between gap-4 border border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold uppercase tracking-wider">
+                        DRIVER COCKPIT
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        GPS Beacon: <strong className="text-emerald-400">{gpsBeaconStatus}</strong>
+                      </span>
+                    </div>
+                    {lastGpsCoords && (
+                      <p className="text-[11px] font-mono text-slate-400">
+                        Coords: {lastGpsCoords.lat.toFixed(5)}, {lastGpsCoords.lng.toFixed(5)}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-center">
+                      <span className="text-2xl font-black font-mono text-white block leading-none">
+                        {liveSpeedKmh}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">KM/H</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Step 5: End Trip & Closing Odometer */}
               <div

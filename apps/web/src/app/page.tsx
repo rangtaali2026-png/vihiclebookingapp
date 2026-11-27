@@ -1074,6 +1074,16 @@ export default function VehicleRequestFormPage() {
                         </div>
                       )}
 
+                                                {(b.status === 'DISPATCHED' || b.status === 'IN_PROGRESS' || b.trip_started_at) && b.status !== 'COMPLETED' && (
+                            <a
+                              href={`/track?tripId=${b.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-black hover:bg-slate-800 transition"
+                            >
+                              Live GPS Radar →
+                            </a>
+                          )}
                       {/* Dispatched Vehicle & Driver Details (if allotted) */}
                       {(b.vehicles || b.drivers || b.status === 'DISPATCHED') && (
                         <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">

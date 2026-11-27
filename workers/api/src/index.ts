@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer';
 
 import { createClient } from '@supabase/supabase-js';
 import type { CreateBookingPayload, Vehicle } from '@plant-transit/shared-types';
@@ -2161,6 +2162,27 @@ export default {
             return jsonResponse({ error: upErr.message }, 500, corsHeaders);
           }
 
+          // Send stage update email to next approver or requester (non-blocking)
+          if (updated) {
+            const nextTargets: string[] = [];
+            if (updated.employee_email) nextTargets.push(updated.employee_email);
+            if (stage === 'FH' && decision === 'APPROVED' && updated.assigned_uh_approver_email) {
+              nextTargets.push(updated.assigned_uh_approver_email);
+            }
+            if (nextTargets.length > 0) {
+              sendSystemEmail(
+                supabase,
+                nextTargets,
+                `[SmartDrive] Requisition ${updated.booking_reference} — ${stage} ${decision}`,
+                `<div style="font-family:Arial,sans-serif;max-width:600px;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
+                  <h3 style="color:#0f172a;margin-top:0;">Requisition ${updated.booking_reference}: ${stage} ${decision}</h3>
+                  <p style="font-size:13px;color:#334155;"><strong>Route:</strong> ${updated.origin_location} → ${updated.destination_location}</p>
+                  ${cleanRemark ? `<p style="font-size:13px;color:#334155;"><strong>${stage} Remark:</strong> "${cleanRemark}"</p>` : ''}
+                </div>`
+              ).catch(() => {});
+            }
+          }
+
           return jsonResponse({
             success: true,
             message: `${stage} approval recorded as ${decision}`,
@@ -2210,6 +2232,180 @@ export default {
           booking: updated,
           message: `Booking ${booking.booking_reference} has been cancelled successfully.`
         }, 200, corsHeaders);
+      }
+
+      // =========================================================================
+      // SUPER ADMIN EMAIL DISPATCH SERVICE (OFFICE 365 & GMAIL SMTP)
+      // =========================================================================
+
+      const sendSystemEmail = async (
+        supabaseClient: any,
+        toEmails: string[],
+        subject: string,
+        htmlBody: string
+      ) => {
+        const recipients = toEmails.map((e) => String(e || '').trim()).filter((e) => e.includes('@'));
+        if (recipients.length === 0) return { skipped: true, reason: 'No valid recipient email' };
+
+        const { data: cfg } = await supabaseClient
+          .from('email_configurations')
+          .select('*')
+          .eq('is_enabled', true)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!cfg || !cfg.smtp_host || !cfg.smtp_username || !cfg.smtp_password) {
+          return { skipped: true, reason: 'Email dispatch service is disabled or unconfigured' };
+        }
+
+        const port = Number(cfg.smtp_port) || 587;
+        const transporter = nodemailer.createTransport({
+          host: cfg.smtp_host,
+          port,
+          secure: port === 465, // true for 465 (Gmail SSL), false for 587 (O365 / Gmail STARTTLS)
+          auth: {
+            user: cfg.smtp_username,
+            pass: cfg.smtp_password
+          },
+          tls: {
+            ciphers: 'SSLv3',
+            rejectUnauthorized: false
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: `"${cfg.sender_name || 'SmartDrive Mobility'}" <${cfg.sender_email || cfg.smtp_username}>`,
+          to: recipients.join(', '),
+          subject,
+          html: htmlBody
+        });
+
+        return { sent: true, messageId: info.messageId };
+      };
+
+      // GET /api/super-admin/email-config
+      if (request.method === 'GET' && path === '/api/super-admin/email-config') {
+        try {
+          const { data: cfg, error } = await supabase
+            .from('email_configurations')
+            .select('*')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            return jsonResponse({ error: error.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            config: cfg ? { ...cfg, smtp_password: cfg.smtp_password ? '••••••••••••' : '' } : null
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to load email configuration' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/super-admin/email-config
+      if (request.method === 'POST' && path === '/api/super-admin/email-config') {
+        try {
+          const body = await request.json() as any;
+          const { data: existing } = await supabase
+            .from('email_configurations')
+            .select('id, smtp_password')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const resolvedPassword =
+            body.smtp_password && body.smtp_password !== '••••••••••••'
+              ? String(body.smtp_password).trim()
+              : existing?.smtp_password || '';
+
+          if (!body.sender_email || !body.smtp_username || !resolvedPassword) {
+            return jsonResponse({ error: 'Sender Email, SMTP Username, and Password / App Password are required.' }, 400, corsHeaders);
+          }
+
+          const payload = {
+            provider: body.provider || 'O365',
+            smtp_host: String(body.smtp_host || 'smtp.office365.com').trim(),
+            smtp_port: Number(body.smtp_port) || 587,
+            use_tls: body.use_tls !== false,
+            sender_name: String(body.sender_name || 'SmartDrive Mobility Desk').trim(),
+            sender_email: String(body.sender_email).trim(),
+            smtp_username: String(body.smtp_username).trim(),
+            smtp_password: resolvedPassword,
+            is_enabled: body.is_enabled !== false,
+            notify_on_booking: body.notify_on_booking !== false,
+            notify_on_approval: body.notify_on_approval !== false,
+            notify_on_dispatch: body.notify_on_dispatch !== false,
+            updated_at: new Date().toISOString()
+          };
+
+          let saved;
+          if (existing?.id) {
+            const { data, error } = await supabase
+              .from('email_configurations')
+              .update(payload)
+              .eq('id', existing.id)
+              .select()
+              .single();
+            if (error) return jsonResponse({ error: error.message }, 500, corsHeaders);
+            saved = data;
+          } else {
+            const { data, error } = await supabase
+              .from('email_configurations')
+              .insert(payload)
+              .select()
+              .single();
+            if (error) return jsonResponse({ error: error.message }, 500, corsHeaders);
+            saved = data;
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `${payload.provider} email dispatch settings saved.`,
+            config: { ...saved, smtp_password: '••••••••••••' }
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to save email config' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/super-admin/email-test (Send Live Verification Email)
+      if (request.method === 'POST' && path === '/api/super-admin/email-test') {
+        try {
+          const body = await request.json() as { test_recipient?: string };
+          const to = String(body.test_recipient || '').trim();
+          if (!to || !to.includes('@')) {
+            return jsonResponse({ error: 'Please enter a valid recipient email address for the test.' }, 400, corsHeaders);
+          }
+
+          const result = await sendSystemEmail(
+            supabase,
+            [to],
+            'SmartDrive Transit Portal — Email Dispatch Test Successful',
+            `<div style="font-family:Arial,sans-serif;max-width:560px;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
+              <h2 style="color:#1d4ed8;margin-top:0;">SmartDrive Email Dispatch Verified</h2>
+              <p style="color:#334155;font-size:14px;">Your outbound SMTP configuration is active and ready to deliver automated booking requisitions, FH/UH approval alerts, and cab allotment notices.</p>
+              <p style="color:#64748b;font-size:12px;margin-bottom:0;">Timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</p>
+            </div>`
+          );
+
+          if ((result as any).skipped) {
+            return jsonResponse({ error: (result as any).reason || 'Email service not enabled' }, 400, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: `Test email dispatched successfully to ${to}!`
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({
+            error: `SMTP Error: ${err.message || 'Authentication or connection failed. Check credentials/App Password.'}`
+          }, 500, corsHeaders);
+        }
       }
 
       // GET /api/users/approvers (Active FH & UH Approvers from access list)
@@ -2783,6 +2979,28 @@ export default {
               drop_point: destLoc
             }));
             await supabase.from('booking_passengers').insert(rows);
+          }
+
+          // Dispatch automated email to Assigned FH Approver & Employee (non-blocking)
+          if (created?.id) {
+            const notifyTargets = [
+              created.assigned_fh_approver_email,
+              created.employee_email
+            ].filter(Boolean);
+            if (notifyTargets.length > 0) {
+              sendSystemEmail(
+                supabase,
+                notifyTargets,
+                `[SmartDrive] New Cab Requisition ${bookingRef} (${originLoc} → ${destLoc})`,
+                `<div style="font-family:Arial,sans-serif;max-width:600px;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
+                  <h3 style="color:#0f172a;margin-top:0;">New Cab Requisition: ${bookingRef}</h3>
+                  <p style="font-size:13px;color:#334155;"><strong>Requester:</strong> ${resolvedEmpName} (${resolvedEmpId || 'N/A'}) — ${resolvedDept}</p>
+                  <p style="font-size:13px;color:#334155;"><strong>Route:</strong> ${originLoc} → ${destLoc} (${travelDate} at ${pickupTime})</p>
+                  <p style="font-size:13px;color:#334155;"><strong>Purpose:</strong> ${purposeText}</p>
+                  <p style="font-size:12px;color:#64748b;">Please sign in to the SmartDrive Approval Portal to review and sign off.</p>
+                </div>`
+              ).catch(() => {});
+            }
           }
 
           return jsonResponse({
