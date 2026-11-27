@@ -2244,6 +2244,243 @@ export default {
         }
       }
 
+      // =========================================================================
+      // DRIVER PORTAL & 6-DIGIT OTP BOARDING WORKFLOW
+      // =========================================================================
+
+      // POST /api/driver/login (Mobile Number + Password 12345)
+      if (request.method === 'POST' && path === '/api/driver/login') {
+        try {
+          const body = await request.json() as { mobile?: string; password?: string };
+          const rawMobile = String(body.mobile || '').replace(/\D/g, '');
+          const last10 = rawMobile.slice(-10);
+          const pass = String(body.password || '').trim();
+
+          if (!last10 || last10.length < 10) {
+            return jsonResponse({ error: 'Please enter a valid 10-digit driver mobile number.' }, 400, corsHeaders);
+          }
+          if (pass !== '12345') {
+            return jsonResponse({ error: 'Invalid driver password. Use 12345.' }, 401, corsHeaders);
+          }
+
+          const { data: driversList, error: drvErr } = await supabase
+            .from('drivers')
+            .select('*');
+
+          if (drvErr) {
+            return jsonResponse({ error: drvErr.message }, 500, corsHeaders);
+          }
+
+          const matchedDriver = (driversList || []).find((d: any) => {
+            const dMob = String(d.mobile_number || d.phone || '').replace(/\D/g, '').slice(-10);
+            return dMob === last10;
+          });
+
+          if (!matchedDriver) {
+            return jsonResponse({
+              error: `No registered driver found with mobile number ${last10}. Check Dispatch Fleet Drivers.`
+            }, 404, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            driver: {
+              id: matchedDriver.id,
+              name: matchedDriver.name || matchedDriver.full_name || 'Assigned Driver',
+              mobile_number: matchedDriver.mobile_number || last10,
+              license_number: matchedDriver.license_number || '',
+              role: 'DRIVER'
+            }
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Driver login failed' }, 500, corsHeaders);
+        }
+      }
+
+      // GET /api/driver/trips?driver_id=...
+      if (request.method === 'GET' && path === '/api/driver/trips') {
+        try {
+          const driverId = url.searchParams.get('driver_id') || '';
+          const driverMobile = (url.searchParams.get('mobile') || '').replace(/\D/g, '').slice(-10);
+
+          let query = supabase
+            .from('bookings')
+            .select('*, vehicles!bookings_allotted_vehicle_id_fkey(id, registration_number, model, seat_capacity), drivers!bookings_allotted_driver_id_fkey(id, name, mobile_number), booking_passengers(*)')
+            .not('allotted_driver_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+          if (driverId) {
+            query = query.eq('allotted_driver_id', driverId);
+          }
+
+          const { data: trips, error: tripErr } = await query;
+          if (tripErr) {
+            return jsonResponse({ error: tripErr.message }, 500, corsHeaders);
+          }
+
+          const filtered = (trips || []).filter((t: any) => {
+            if (t.status === 'CANCELLED' || t.status === 'REJECTED' || t.status === 'COMPLETED') return false;
+            if (driverId) return t.allotted_driver_id === driverId;
+            if (driverMobile && t.drivers) {
+              return String(t.drivers.mobile_number || '').replace(/\D/g, '').slice(-10) === driverMobile;
+            }
+            return true;
+          });
+
+          return jsonResponse({ success: true, trips: filtered }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to load driver trips' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/bookings/:id/send-otp (Generate 6-digit Boarding OTP for Employee)
+      if (request.method === 'POST' && path.startsWith('/api/bookings/') && path.endsWith('/send-otp')) {
+        try {
+          const bookingId = path.split('/')[3];
+          const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+          const { data: updated, error: upErr } = await supabase
+            .from('bookings')
+            .update({
+              boarding_otp: otp,
+              otp_sent_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bookingId)
+            .select()
+            .single();
+
+          if (upErr) {
+            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: '6-digit boarding OTP sent to employee status portal.',
+            otp_sent_at: updated.otp_sent_at,
+            booking: updated
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to send OTP' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/bookings/:id/verify-otp (Verify 6-digit OTP & Mark Passenger Onboarded)
+      if (request.method === 'POST' && path.startsWith('/api/bookings/') && path.endsWith('/verify-otp')) {
+        try {
+          const bookingId = path.split('/')[3];
+          const body = await request.json() as { otp?: string };
+          const enteredOtp = String(body.otp || '').trim();
+
+          if (enteredOtp.length !== 6) {
+            return jsonResponse({ error: 'Please enter the 6-digit OTP from the passenger.' }, 400, corsHeaders);
+          }
+
+          const { data: booking, error: fetchErr } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .single();
+
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+          }
+
+          if (!booking.boarding_otp) {
+            return jsonResponse({ error: 'Please press Send OTP first before verifying.' }, 400, corsHeaders);
+          }
+
+          if (String(booking.boarding_otp).trim() !== enteredOtp) {
+            return jsonResponse({ error: 'Invalid 6-digit OTP. Please ask the passenger to re-check their Request Status screen.' }, 400, corsHeaders);
+          }
+
+          const { data: updated, error: upErr } = await supabase
+            .from('bookings')
+            .update({
+              passenger_onboarded_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bookingId)
+            .select()
+            .single();
+
+          if (upErr) {
+            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: 'Passenger verified & onboarded! You can now start the trip.',
+            booking: updated
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'OTP verification failed' }, 500, corsHeaders);
+        }
+      }
+
+      // POST /api/bookings/:id/start-trip (Start Trip after Passenger Onboarding)
+      if (request.method === 'POST' && path.startsWith('/api/bookings/') && path.endsWith('/start-trip')) {
+        try {
+          const bookingId = path.split('/')[3];
+          const body = await request.json().catch(() => ({})) as { start_odometer_km?: number };
+
+          const { data: booking, error: fetchErr } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('id', bookingId)
+            .single();
+
+          if (fetchErr || !booking) {
+            return jsonResponse({ error: 'Booking not found' }, 404, corsHeaders);
+          }
+
+          if (!booking.passenger_onboarded_at) {
+            return jsonResponse({ error: 'Passenger must be onboarded via 6-digit OTP before starting the trip.' }, 400, corsHeaders);
+          }
+
+          const updates: any = {
+            status: 'IN_PROGRESS',
+            trip_started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          if (body.start_odometer_km !== undefined) {
+            updates.start_odometer_km = Number(body.start_odometer_km) || 0;
+          }
+
+          let { data: updated, error: upErr } = await supabase
+            .from('bookings')
+            .update(updates)
+            .eq('id', bookingId)
+            .select()
+            .single();
+
+          // Fallback if booking_status enum in DB uses DISPATCHED instead of IN_PROGRESS
+          if (upErr && upErr.message && upErr.message.includes('booking_status')) {
+            const retry = await supabase
+              .from('bookings')
+              .update({ ...updates, status: 'DISPATCHED' })
+              .eq('id', bookingId)
+              .select()
+              .single();
+            updated = retry.data;
+            upErr = retry.error;
+          }
+
+          if (upErr) {
+            return jsonResponse({ error: upErr.message }, 500, corsHeaders);
+          }
+
+          return jsonResponse({
+            success: true,
+            message: 'Trip started successfully!',
+            booking: updated
+          }, 200, corsHeaders);
+        } catch (err: any) {
+          return jsonResponse({ error: err.message || 'Failed to start trip' }, 500, corsHeaders);
+        }
+      }
+
       // GET /api/bookings/track?employee_id=...&mobile=... (Employee Self-Service Status Tracker)
       if (request.method === 'GET' && path === '/api/bookings/track') {
         try {

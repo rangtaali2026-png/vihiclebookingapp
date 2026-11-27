@@ -201,6 +201,16 @@ export default function LoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        <div className="pt-3 border-t border-slate-100 text-center">
+          <a
+            href="/driver"
+            className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:text-emerald-800"
+          >
+            <Car className="w-3.5 h-3.5" />
+            Chauffeur / Driver App Login →
+          </a>
+        </div>
       </div>
 
       {/* Bottom-Right Floating "?" Circular Button */}

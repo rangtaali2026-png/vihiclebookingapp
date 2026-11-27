@@ -114,6 +114,14 @@ export default function VehicleRequestFormPage() {
   const [trackedBookings, setTrackedBookings] = useState<any[] | null>(null);
   const [trackError, setTrackError] = useState<string | null>(null);
 
+    useEffect(() => {
+    if (!showStatusModal || !trackEmpId || !trackMobile) return;
+    const timer = setInterval(() => {
+      handleTrackLookup(trackEmpId, trackMobile);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [showStatusModal, trackEmpId, trackMobile]);
+
   const openStatusTracker = () => {
     if (employeeId && !trackEmpId) setTrackEmpId(employeeId);
     if (contactNo && !trackMobile) setTrackMobile(contactNo);
@@ -968,6 +976,10 @@ export default function VehicleRequestFormPage() {
 
                   const overallLabel = isRejected
                     ? 'REJECTED'
+                    : (b.trip_started_at || b.status === 'IN_PROGRESS')
+                    ? 'TRIP IN PROGRESS'
+                    : b.passenger_onboarded_at
+                    ? 'PASSENGER ONBOARDED'
                     : b.status === 'DISPATCHED'
                     ? 'CAB DISPATCHED'
                     : b.status === 'APPROVED'
@@ -1026,6 +1038,29 @@ export default function VehicleRequestFormPage() {
                           )}
                         </div>
                       </div>
+
+                                            {/* Live 6-Digit Boarding OTP & Trip Status for Passenger */}
+                      {b.boarding_otp && (
+                        <div className="p-3.5 rounded-xl bg-blue-600 text-white flex flex-wrap items-center justify-between gap-3 shadow-sm">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-100 block">
+                              {b.trip_started_at || b.status === 'IN_PROGRESS'
+                                ? 'Trip In Progress'
+                                : b.passenger_onboarded_at
+                                ? 'Passenger Onboarded'
+                                : 'Share 6-Digit Boarding OTP With Driver'}
+                            </span>
+                            <span className="text-xs text-blue-50">
+                              {b.passenger_onboarded_at
+                                ? 'OTP verified by chauffeur. Enjoy your ride!'
+                                : 'Provide this OTP to your driver to confirm boarding & start trip.'}
+                            </span>
+                          </div>
+                          <div className="px-4 py-1.5 rounded-lg bg-white text-blue-700 font-mono text-lg font-black tracking-widest">
+                            {b.boarding_otp}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Dispatched Vehicle & Driver Details (if allotted) */}
                       {(b.vehicles || b.drivers || b.status === 'DISPATCHED') && (
