@@ -461,6 +461,12 @@ export default function SuperAdminSitesPage() {
               <RefreshCw className="w-4 h-4 hover:rotate-180 transition-transform duration-500" />
             </button>
 
+            <a
+              href="/super-admin/email"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-800 text-xs font-black hover:border-blue-500 hover:text-blue-600 transition shadow-sm"
+            >
+              Email Dispatch (O365 / Gmail)
+            </a>
             <button
               onClick={() => setIsNewPlantModalOpen(true)}
               className="smart-gradient-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-smart-lg hover:opacity-95 transition flex items-center gap-2"
@@ -573,6 +579,12 @@ export default function SuperAdminSitesPage() {
                 </button>
               );
             })}
+            <a
+              href="/super-admin/email"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-blue-600 hover:bg-blue-50/60 transition"
+            >
+              Email Dispatch (O365 / Gmail)
+            </a>
           </div>
 
           <div className="relative w-full sm:w-72">
