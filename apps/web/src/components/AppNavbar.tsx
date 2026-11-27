@@ -91,12 +91,6 @@ export default function AppNavbar() {
               </div>
 
               {/* Notification Bell */}
-              <a
-              href="/reports"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition shadow-sm"
-            >
-              Reports &amp; Excel Export
-            </a>
             <button 
                 type="button"
                 className="relative p-2 rounded-xl text-smart-navy hover:bg-slate-100 transition border border-transparent hover:border-smart-border"

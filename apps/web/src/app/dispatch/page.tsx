@@ -220,14 +220,6 @@ export default function DispatchPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 pb-6 md:px-10 md:pb-10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 flex justify-end">
-        <a
-          href="/reports"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition shadow-sm"
-        >
-          Reports &amp; Excel Export
-        </a>
-      </div>
       <AppNavbar />
       <div className="max-w-7xl mx-auto space-y-8">
         
@@ -245,6 +237,12 @@ export default function DispatchPage() {
             <p className="text-sm text-slate-600">Allocate drivers, assign ride assets, and verify passenger boarding manifests</p>
           </div>
           <div className="flex gap-2">
+            <a
+              href="/reports"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition shadow-sm"
+            >
+              Reports &amp; Excel Export
+            </a>
             <Link
               href="/bookings"
               className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
