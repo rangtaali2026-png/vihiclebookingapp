@@ -245,6 +245,12 @@ export default function ExecutiveApprovalsPage() {
                 {user?.email || ''}
               </span>
             </div>
+            <a
+              href="/reports"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition shadow-sm"
+            >
+              Reports &amp; Excel Export
+            </a>
             <button
               type="button"
               onClick={handleLogout}
