@@ -33,7 +33,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
   },
   {
     title: 'FH Approval (Functional Head)',
-    email: 'fh.approval@grasim.local',
+    email: 'rangtaali2026@gmail.com',
     pass: 'Approver@2026',
     role: 'FH_APPROVER',
     badge: 'Outstation Step 2',
@@ -41,7 +41,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
   },
   {
     title: 'UH Approval (Unit Head)',
-    email: 'uh.approval@grasim.local',
+    email: 'dvmungara@gmail.com',
     pass: 'Approver@2026',
     role: 'UH_APPROVER',
     badge: 'Outstation Step 3',
@@ -49,7 +49,7 @@ const DEMO_CREDENTIALS: DemoCredential[] = [
   },
   {
     title: 'FH-HR / Admin Approval',
-    email: 'hr.admin@grasim.local',
+    email: 'spandangrasim@gmail.com',
     pass: 'Approver@2026',
     role: 'FH_HR_ADMIN',
     badge: 'Final Sign-Off',

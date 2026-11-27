@@ -2509,10 +2509,10 @@ export default {
 
           // Fallback to default seeded approvers if public.users has not been populated yet
           const finalFh = fhApprovers.length > 0 ? fhApprovers : [
-            { id: 'fh-default-1', full_name: 'Rajesh Mehta (Functional Head)', email: 'fh.approval@grasim.local', role: 'FH_APPROVER', department: 'Operations' }
+            { id: 'fh-default-1', full_name: 'Rajesh Mehta (Functional Head)', email: 'rangtaali2026@gmail.com', role: 'FH_APPROVER', department: 'Operations' }
           ];
           const finalUh = uhApprovers.length > 0 ? uhApprovers : [
-            { id: 'uh-default-1', full_name: 'Suresh Nair (Unit Head)', email: 'uh.approval@grasim.local', role: 'UH_APPROVER', department: 'Plant Leadership' }
+            { id: 'uh-default-1', full_name: 'Suresh Nair (Unit Head)', email: 'dvmungara@gmail.com', role: 'UH_APPROVER', department: 'Plant Leadership' }
           ];
 
           return jsonResponse({
