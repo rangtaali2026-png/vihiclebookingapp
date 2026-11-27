@@ -467,6 +467,12 @@ export default function SuperAdminSitesPage() {
             >
               Email Dispatch (O365 / Gmail)
             </a>
+            <a
+              href="/reports"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-700 transition shadow-sm"
+            >
+              Reports &amp; Excel Export
+            </a>
             <button
               onClick={() => setIsNewPlantModalOpen(true)}
               className="smart-gradient-blue text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-smart-lg hover:opacity-95 transition flex items-center gap-2"
