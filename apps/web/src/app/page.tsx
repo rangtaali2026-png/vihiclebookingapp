@@ -59,6 +59,7 @@ export default function VehicleRequestFormPage() {
   // Grasim GCD Form State
   const [requestDate] = useState(todayStr);
   const [requesterName, setRequesterName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [department, setDepartment] = useState('');
   const [contactNo, setContactNo] = useState('');
@@ -554,6 +555,18 @@ export default function VehicleRequestFormPage() {
                           className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-mono text-slate-900"
                         />
                       </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Email Address <span className="text-slate-400 font-normal">(Optional — receive booking &amp; cab details)</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    placeholder="e.g. name@company.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-medium text-slate-900 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
                       <div className="sm:col-span-1 text-right">
                         {travelers.length > 1 && (
                           <button

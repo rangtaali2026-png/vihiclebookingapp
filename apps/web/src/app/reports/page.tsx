@@ -134,6 +134,7 @@ export default function TripReportsPage() {
           b.booking_reference,
           b.employee_name,
           b.employee_id,
+          b.employee_email,
           b.department,
           b.origin_location,
           b.destination_location,
@@ -198,6 +199,7 @@ export default function TripReportsPage() {
         'DSIG': dsig,
         'Dept': b.department || '',
         'Use By': useBy,
+        'Email': b.employee_email || (Array.isArray(b.passenger_manifest) && b.passenger_manifest[0]?.email) || '',
         'From': b.origin_location || '',
         'To': b.destination_location || '',
         'Round Trip / Pick Up / Drop': b.trip_type || 'One Way Trip',
@@ -234,6 +236,7 @@ export default function TripReportsPage() {
       'DSIG',
       'Dept',
       'Use By',
+      'Email',
       'From',
       'To',
       'Round Trip / Pick Up / Drop',
@@ -257,6 +260,7 @@ export default function TripReportsPage() {
       { wch: 10 }, // DSIG
       { wch: 16 }, // Dept
       { wch: 24 }, // Use By
+      { wch: 26 }, // Email
       { wch: 24 }, // From
       { wch: 24 }, // To
       { wch: 26 }, // Round Trip / Pick Up / Drop
@@ -480,6 +484,7 @@ export default function TripReportsPage() {
                     <th className="py-3 px-3">DSIG</th>
                     <th className="py-3 px-3">Dept</th>
                     <th className="py-3 px-3">Use By</th>
+                    <th className="py-3 px-3">Email</th>
                     <th className="py-3 px-3">From</th>
                     <th className="py-3 px-3">To</th>
                     <th className="py-3 px-3">Round Trip / Pick Up / Drop</th>
@@ -506,6 +511,7 @@ export default function TripReportsPage() {
                       </td>
                       <td className="py-2.5 px-3 font-semibold text-slate-700">{row['Dept']}</td>
                       <td className="py-2.5 px-3 font-bold text-slate-900">{row['Use By']}</td>
+                      <td className="py-2.5 px-3 font-mono text-slate-600">{row['Email'] || '-'}</td>
                       <td className="py-2.5 px-3 text-slate-800">{row['From']}</td>
                       <td className="py-2.5 px-3 text-slate-800">{row['To']}</td>
                       <td className="py-2.5 px-3 text-slate-700">{row['Round Trip / Pick Up / Drop']}</td>

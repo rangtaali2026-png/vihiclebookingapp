@@ -3043,17 +3043,19 @@ export default {
           ).trim();
 
           const normalizedManifest = rawTravelers.length > 0
-            ? rawTravelers.map((p: any) => ({
+            ? rawTravelers.map((p: any, idx: number) => ({
                 name: p.name || p.passenger_name || resolvedEmpName,
                 employee_id: String(p.employee_id || p.employee_code || resolvedEmpId || '').trim().toUpperCase(),
                 department: p.department || resolvedDept,
-                mobile: String(p.mobile || p.mobile_number || resolvedMobile || '').trim()
+                mobile: String(p.mobile || p.mobile_number || resolvedMobile || '').trim(),
+                email: String(p.email || (idx === 0 ? resolvedEmail : '') || '').trim() || null
               }))
             : [{
                 name: resolvedEmpName,
                 employee_id: resolvedEmpId || '',
                 department: resolvedDept,
-                mobile: resolvedMobile || ''
+                mobile: resolvedMobile || '',
+                email: resolvedEmail || null
               }];
 
           const travelDate = body.travel_date || now.toISOString().slice(0, 10);
@@ -3145,6 +3147,46 @@ export default {
               drop_point: destLoc
             }));
             await supabase.from('booking_passengers').insert(rows);
+          }
+
+                    // Send booking confirmation receipt to user if optional employee_email was provided
+          if (created?.id && created.employee_email) {
+            sendSystemEmail(
+              supabase,
+              [created.employee_email],
+              `[SmartDrive] Booking Request Submitted — ${bookingRef}`,
+              `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;">
+                <div style="background:#1d4ed8;color:#ffffff;padding:14px 18px;border-radius:10px;margin-bottom:18px;">
+                  <h2 style="margin:0;font-size:18px;">Cab Requisition Received — ${bookingRef}</h2>
+                  <p style="margin:4px 0 0;font-size:12px;opacity:0.9;">Your vehicle request has been logged and routed for authorization.</p>
+                </div>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;color:#1e293b;margin-bottom:16px;">
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:40%;"><strong>Booking Ref</strong></td>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;font-family:monospace;font-weight:bold;">${bookingRef}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Passenger</strong></td>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${resolvedEmpName} (${resolvedEmpId || 'N/A'})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Route</strong></td>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${originLoc} &rarr; ${destLoc}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Schedule</strong></td>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${travelDate} at ${pickupTime} (${body.trip_type || 'One Way Trip'})</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Purpose</strong></td>
+                    <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${purposeText || 'Official Travel'}</td>
+                  </tr>
+                </table>
+                <p style="font-size:12px;color:#64748b;margin-bottom:0;">
+                  You will receive email updates when your request is approved, rejected, or dispatched. You can also track live status anytime using <strong>Check Request Status</strong> with Employee ID <strong>${resolvedEmpId || 'your ID'}</strong> and Mobile <strong>${resolvedMobile || 'your number'}</strong>.
+                </p>
+              </div>`
+            ).catch(() => {});
           }
 
           // Dispatch automated email to Assigned FH Approver & Employee (non-blocking)
