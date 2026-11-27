@@ -2162,25 +2162,105 @@ export default {
             return jsonResponse({ error: upErr.message }, 500, corsHeaders);
           }
 
-          // Send stage update email to next approver or requester (non-blocking)
+          // Send stage update or rejection email to employee / next approver (non-blocking)
           if (updated) {
-            const nextTargets: string[] = [];
-            if (updated.employee_email) nextTargets.push(updated.employee_email);
-            if (stage === 'FH' && decision === 'APPROVED' && updated.assigned_uh_approver_email) {
-              nextTargets.push(updated.assigned_uh_approver_email);
-            }
-            if (nextTargets.length > 0) {
-              sendSystemEmail(
-                supabase,
-                nextTargets,
-                `[SmartDrive] Requisition ${updated.booking_reference} — ${stage} ${decision}`,
-                `<div style="font-family:Arial,sans-serif;max-width:600px;padding:20px;border:1px solid #e2e8f0;border-radius:12px;">
-                  <h3 style="color:#0f172a;margin-top:0;">Requisition ${updated.booking_reference}: ${stage} ${decision}</h3>
-                  <p style="font-size:13px;color:#334155;"><strong>Route:</strong> ${updated.origin_location} → ${updated.destination_location}</p>
-                  ${cleanRemark ? `<p style="font-size:13px;color:#334155;"><strong>${stage} Remark:</strong> "${cleanRemark}"</p>` : ''}
-                </div>`
-              ).catch(() => {});
-            }
+            (async () => {
+              try {
+                const { data: emailCfg } = await supabase
+                  .from('email_configurations')
+                  .select('is_enabled, notify_on_approval')
+                  .eq('is_enabled', true)
+                  .order('updated_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+
+                if (!emailCfg || emailCfg.notify_on_approval === false) return;
+
+                const stageLabel =
+                  stage === 'FH'
+                    ? 'Functional Head (FH)'
+                    : stage === 'UH'
+                    ? 'Unit Head (UH)'
+                    : stage === 'DH'
+                    ? 'Department Head (DH)'
+                    : 'FH-HR / Admin';
+
+                const actorLabel = body.approver_name ? `${body.approver_name} (${stageLabel})` : stageLabel;
+
+                const employeeRecipients: string[] = [];
+                if (updated.employee_email) employeeRecipients.push(updated.employee_email);
+                if (Array.isArray(updated.passenger_manifest)) {
+                  for (const p of updated.passenger_manifest) {
+                    if (p?.email) employeeRecipients.push(p.email);
+                  }
+                }
+                const uniqueEmployeeEmails = Array.from(
+                  new Set(employeeRecipients.map((e) => String(e).trim()).filter((e) => e.includes('@')))
+                );
+
+                if (decision === 'REJECTED') {
+                  if (uniqueEmployeeEmails.length === 0) return;
+
+                  await sendSystemEmail(
+                    supabase,
+                    uniqueEmployeeEmails,
+                    `[SmartDrive] Cab Requisition ${updated.booking_reference} — REJECTED by ${stageLabel}`,
+                    `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;border:1px solid #fecdd3;border-radius:14px;background:#ffffff;">
+                      <div style="background:#e11d48;color:#ffffff;padding:14px 18px;border-radius:10px;margin-bottom:18px;">
+                        <h2 style="margin:0;font-size:18px;">Cab Requisition Rejected — ${updated.booking_reference}</h2>
+                        <p style="margin:4px 0 0;font-size:12px;opacity:0.95;">Your travel request was declined during ${stageLabel} review and has been closed.</p>
+                      </div>
+                      <table style="width:100%;border-collapse:collapse;font-size:13px;color:#1e293b;margin-bottom:16px;">
+                        <tr>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:40%;"><strong>Requester</strong></td>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${updated.employee_name || 'Employee'} (${updated.employee_id || 'N/A'})</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Route</strong></td>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${updated.origin_location} &rarr; ${updated.destination_location}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>Rejected By</strong></td>
+                          <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;"><strong>${actorLabel}</strong></td>
+                        </tr>
+                      </table>
+                      <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:14px;font-size:13px;color:#9f1239;">
+                        <strong style="display:block;margin-bottom:4px;">Rejection Remark:</strong>
+                        <span>&ldquo;${cleanRemark || 'No specific remark provided.'}&rdquo;</span>
+                      </div>
+                    </div>`
+                  );
+                } else {
+                  const nextTargets: string[] = [...uniqueEmployeeEmails];
+                  if (stage === 'FH' && updated.assigned_uh_approver_email) {
+                    nextTargets.push(String(updated.assigned_uh_approver_email).trim());
+                  }
+                  const uniqueNext = Array.from(new Set(nextTargets.filter((e) => e.includes('@'))));
+                  if (uniqueNext.length === 0) return;
+
+                  await sendSystemEmail(
+                    supabase,
+                    uniqueNext,
+                    `[SmartDrive] Requisition ${updated.booking_reference} — Approved by ${stageLabel}`,
+                    `<div style="font-family:Arial,sans-serif;max-width:600px;padding:24px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;">
+                      <h3 style="color:#0f172a;margin-top:0;">Requisition ${updated.booking_reference}: Approved by ${stageLabel}</h3>
+                      <p style="font-size:13px;color:#334155;"><strong>Route:</strong> ${updated.origin_location} &rarr; ${updated.destination_location}</p>
+                      <p style="font-size:13px;color:#334155;"><strong>Approved By:</strong> ${actorLabel}</p>
+                      ${cleanRemark ? `<p style="font-size:13px;color:#334155;"><strong>Remark:</strong> &ldquo;${cleanRemark}&rdquo;</p>` : ''}
+                      <p style="font-size:12px;color:#64748b;">${
+                        stage === 'FH'
+                          ? 'This outstation request has now moved to Unit Head (UH) review.'
+                          : stage === 'UH'
+                          ? 'This outstation request has now moved to FH-HR / Admin for final sign-off and cab allotment.'
+                          : 'Your request has received FH-HR / Admin sign-off.'
+                      }</p>
+                    </div>`
+                  );
+                }
+              } catch {
+                // Non-blocking email notification
+              }
+            })();
           }
 
           return jsonResponse({
