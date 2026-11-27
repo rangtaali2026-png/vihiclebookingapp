@@ -2296,6 +2296,76 @@ export default {
           const randPart = Math.floor(1000 + Math.random() * 9000);
           const bookingRef = body.booking_reference || `BK-${datePart}-${randPart}`;
 
+          // Extract travelers array from any key name the form sends
+          const rawTravelers = Array.isArray(body.passenger_manifest)
+            ? body.passenger_manifest
+            : Array.isArray(body.passengers)
+            ? body.passengers
+            : Array.isArray(body.travelers)
+            ? body.travelers
+            : [];
+
+          const firstTraveler = rawTravelers[0] || {};
+
+          // Resolve requester name, employee ID, mobile, email, department across all possible form keys
+          const resolvedEmpName = String(
+            body.employee_name ||
+            body.requester_name ||
+            body.full_name ||
+            body.name ||
+            firstTraveler.name ||
+            firstTraveler.passenger_name ||
+            ''
+          ).trim() || 'Employee';
+
+          const resolvedEmpId = String(
+            body.employee_id ||
+            body.emp_id ||
+            body.employee_code ||
+            body.staff_id ||
+            firstTraveler.employee_id ||
+            firstTraveler.employee_code ||
+            ''
+          ).trim().toUpperCase() || null;
+
+          const resolvedMobile = String(
+            body.mobile ||
+            body.contact_no ||
+            body.employee_phone ||
+            body.phone ||
+            body.mobile_number ||
+            firstTraveler.mobile ||
+            firstTraveler.mobile_number ||
+            ''
+          ).trim() || null;
+
+          const resolvedEmail = String(
+            body.employee_email ||
+            body.email ||
+            firstTraveler.email ||
+            ''
+          ).trim() || null;
+
+          const resolvedDept = String(
+            body.department ||
+            firstTraveler.department ||
+            'Plant Operations'
+          ).trim();
+
+          const normalizedManifest = rawTravelers.length > 0
+            ? rawTravelers.map((p: any) => ({
+                name: p.name || p.passenger_name || resolvedEmpName,
+                employee_id: String(p.employee_id || p.employee_code || resolvedEmpId || '').trim().toUpperCase(),
+                department: p.department || resolvedDept,
+                mobile: String(p.mobile || p.mobile_number || resolvedMobile || '').trim()
+              }))
+            : [{
+                name: resolvedEmpName,
+                employee_id: resolvedEmpId || '',
+                department: resolvedDept,
+                mobile: resolvedMobile || ''
+              }];
+
           const travelDate = body.travel_date || now.toISOString().slice(0, 10);
           const pickupTime = body.pickup_time || '09:00';
           const scheduledStart = body.scheduled_start_time || `${travelDate}T${pickupTime}:00+05:30`;
@@ -2310,40 +2380,9 @@ export default {
               : (destLoc && !String(destLoc).toLowerCase().includes('bharuch'))
           );
 
-          // Resolve requester_id (NOT NULL UUID foreign key) from users / employees
-          let requesterId = body.requester_id || null;
-          const empCode = String(body.employee_id || 'EMP-000').trim().toUpperCase();
+          const purposeText = String(body.purpose_of_travel || body.purpose || '').trim();
 
-          if (!requesterId) {
-            // 1. Try matching by employee_id / employee_code in users table
-            const { data: matchedUser } = await supabase
-              .from('users')
-              .select('id')
-              .or(`employee_id.eq.${empCode},employee_code.eq.${empCode}`)
-              .limit(1)
-              .maybeSingle();
-
-            if (matchedUser?.id) {
-              requesterId = matchedUser.id;
-            }
-          }
-
-          if (!requesterId) {
-            // 2. Fallback to any existing user in users table for the site
-            const { data: fallbackUser } = await supabase
-              .from('users')
-              .select('id')
-              .limit(1)
-              .maybeSingle();
-
-            if (fallbackUser?.id) {
-              requesterId = fallbackUser.id;
-            }
-          }
-
-          // Keep requesterId null if not matched in auth/profiles so FK constraints are respected
-
-          // Resolve default site_id if not passed by the employee form
+          // Resolve default site_id
           let siteId = body.site_id || null;
           if (!siteId) {
             const { data: defaultSite } = await supabase
@@ -2354,99 +2393,64 @@ export default {
             siteId = defaultSite?.id || null;
           }
 
-          const insertPayload: any = {
+          // Exact columns verified against public.bookings schema
+          const dbPayload: any = {
             booking_reference: bookingRef,
             site_id: siteId,
-            requester_id: requesterId,
-            booking_type: body.booking_type || 'PRIVATE',
+            requester_id: null,
+            booking_type: 'PRIVATE',
             target_category: body.vehicle_category || body.target_category || 'SEDAN_4',
             origin_location: originLoc,
             destination_location: destLoc,
             scheduled_start_time: scheduledStart,
             scheduled_end_time: scheduledEnd,
-            purpose: body.purpose_of_travel || body.purpose || '',
-            passenger_count: Number(body.passenger_count) || 1,
             status: 'PENDING',
-            employee_name: body.employee_name || body.requester_name || 'Employee',
-            employee_id: String(body.employee_id || 'EMP-000').trim().toUpperCase(),
-            department: body.department || 'General',
-            mobile: body.mobile || body.contact_no || '',
-            pickup_location: originLoc,
-            drop_location: destLoc,
-            travel_date: travelDate,
-            pickup_time: pickupTime,
-            passenger_manifest: Array.isArray(body.passenger_manifest) ? body.passenger_manifest : [],
+            passenger_count: Number(body.passenger_count) || normalizedManifest.length || 1,
+            purpose: purposeText,
+            purpose_of_travel: purposeText,
+            cost_center: body.cost_center || null,
+            department: resolvedDept,
+            employee_name: resolvedEmpName,
+            employee_id: resolvedEmpId,
+            mobile: resolvedMobile,
+            employee_phone: resolvedMobile,
+            employee_email: resolvedEmail,
+            passenger_manifest: normalizedManifest,
             request_for: body.request_for || 'Self',
             trip_type: body.trip_type || 'One Way Trip',
             return_date: returnDate,
             total_days: Number(body.total_days) || 1,
-            purpose_of_travel: body.purpose_of_travel || body.purpose || '',
             is_outstation: isOutstation,
             dh_approval_status: 'PENDING',
             fh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
             uh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
             admin_hr_approval_status: 'PENDING',
+            priority_flag: Boolean(body.priority_flag),
             assigned_fh_approver_id: body.assigned_fh_approver_id && !String(body.assigned_fh_approver_id).startsWith('fh-default') ? body.assigned_fh_approver_id : null,
             assigned_fh_approver_email: body.assigned_fh_approver_email || null,
             assigned_fh_approver_name: body.assigned_fh_approver_name || null,
             assigned_uh_approver_id: body.assigned_uh_approver_id && !String(body.assigned_uh_approver_id).startsWith('uh-default') ? body.assigned_uh_approver_id : null,
             assigned_uh_approver_email: body.assigned_uh_approver_email || null,
-            assigned_uh_approver_name: body.assigned_uh_approver_name || null,
-            cost_center: body.cost_center || null,
-            priority_flag: Boolean(body.priority_flag)
+            assigned_uh_approver_name: body.assigned_uh_approver_name || null
           };
 
-          let { data: created, error: insErr } = await supabase
+          const { data: created, error: insErr } = await supabase
             .from('bookings')
-            .insert(insertPayload)
+            .insert(dbPayload)
             .select()
             .single();
-
-          // Fallback if some columns differ between legacy & GCD schema
-          if (insErr && insErr.message && (insErr.message.includes('column') || insErr.message.includes('booking_type') || insErr.message.includes('foreign key'))) {
-            const safePayload: any = {
-              booking_reference: bookingRef,
-              site_id: siteId,
-              requester_id: null,
-              booking_type: 'PRIVATE',
-              target_category: insertPayload.target_category,
-              origin_location: originLoc,
-              destination_location: destLoc,
-              scheduled_start_time: scheduledStart,
-              scheduled_end_time: scheduledEnd,
-              purpose: insertPayload.purpose,
-              passenger_count: insertPayload.passenger_count,
-              status: 'PENDING',
-              is_outstation: isOutstation,
-              fh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
-              uh_approval_status: isOutstation ? 'PENDING' : 'NOT_REQUIRED',
-              admin_hr_approval_status: 'PENDING',
-              assigned_fh_approver_email: body.assigned_fh_approver_email || null,
-              assigned_fh_approver_name: body.assigned_fh_approver_name || null,
-              assigned_uh_approver_email: body.assigned_uh_approver_email || null,
-              assigned_uh_approver_name: body.assigned_uh_approver_name || null
-            };
-            const retry = await supabase
-              .from('bookings')
-              .insert(safePayload)
-              .select()
-              .single();
-            created = retry.data;
-            insErr = retry.error;
-          }
 
           if (insErr) {
             return jsonResponse({ error: insErr.message }, 500, corsHeaders);
           }
 
-          // Record travelers in booking_passengers table if manifest provided
-          if (created?.id && Array.isArray(body.passenger_manifest) && body.passenger_manifest.length > 0) {
-            const rows = body.passenger_manifest.map((p: any) => ({
+          // Also mirror passengers into booking_passengers table
+          if (created?.id && normalizedManifest.length > 0) {
+            const rows = normalizedManifest.map((p: any) => ({
               booking_id: created.id,
-              passenger_name: p.name || insertPayload.employee_name,
-              employee_code: p.employee_id || insertPayload.employee_id,
-              department: p.department || insertPayload.department,
-              mobile_number: p.mobile || insertPayload.mobile,
+              passenger_name: p.name,
+              department: p.department,
+              mobile_number: p.mobile,
               pickup_point: originLoc,
               drop_point: destLoc
             }));
@@ -2463,6 +2467,7 @@ export default {
           return jsonResponse({ error: err.message || 'Failed to submit vehicle request' }, 500, corsHeaders);
         }
       }
+
 
       // GET /api/bookings?site_id=...&requester_id=...
       if (request.method === 'GET' && path === '/api/bookings') {
