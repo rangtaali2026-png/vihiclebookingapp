@@ -43,6 +43,7 @@ export default function DispatchPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [dispatchTab, setDispatchTab] = useState<'ACTIVE' | 'HISTORY'>('ACTIVE');
 
   // Assignment Modal State
   const [assigningBooking, setAssigningBooking] = useState<Booking | null>(null);
@@ -218,6 +219,31 @@ export default function DispatchPage() {
     }
   };
 
+  const isOutstationReq = (b: any) =>
+    Boolean(
+      b.is_outstation ||
+      (b.destination_location && !String(b.destination_location).toLowerCase().includes('bharuch'))
+    );
+
+  const isReadyOrActiveForDispatch = (b: any) => {
+    if (b.status === 'COMPLETED' || b.status === 'REJECTED' || b.status === 'CANCELLED') return false;
+    if (b.fh_approval_status === 'REJECTED' || b.uh_approval_status === 'REJECTED' || b.admin_hr_approval_status === 'REJECTED') {
+      return false;
+    }
+    // Outstation requests must have BOTH FH and UH approved before appearing in FH-HR / Admin Dispatch
+    if (isOutstationReq(b)) {
+      return b.fh_approval_status === 'APPROVED' && b.uh_approval_status === 'APPROVED';
+    }
+    return true;
+  };
+
+  const filteredDispatchBookings = (Array.isArray(bookings) ? bookings : []).filter((b: any) => {
+    if (dispatchTab === 'HISTORY') {
+      return b.status === 'COMPLETED' || b.status === 'REJECTED' || b.status === 'CANCELLED';
+    }
+    return isReadyOrActiveForDispatch(b);
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 px-6 pb-6 md:px-10 md:pb-10">
       <AppNavbar />
@@ -290,8 +316,24 @@ export default function DispatchPage() {
         <div className="bg-white rounded-xl border border-slate-800 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-50">
             <h3 className="text-sm font-semibold text-slate-800">
-              Trip Dispatch & Asset Allocation Queue ({bookings.length})
+              Trip Dispatch &amp; Asset Allocation Queue ({filteredDispatchBookings.length})
             </h3>
+            <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold mr-2">
+              <button
+                type="button"
+                onClick={() => setDispatchTab('ACTIVE')}
+                className={`px-3 py-1 rounded-lg transition ${dispatchTab === 'ACTIVE' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Ready for Dispatch
+              </button>
+              <button
+                type="button"
+                onClick={() => setDispatchTab('HISTORY')}
+                className={`px-3 py-1 rounded-lg transition ${dispatchTab === 'HISTORY' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                Completed &amp; Closed
+              </button>
+            </div>
             <button
               onClick={loadData}
               className="text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -319,7 +361,7 @@ export default function DispatchPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80">
-                  {bookings.map((b) => (
+                  {filteredDispatchBookings.map((b) => (
                     <tr key={b.id} className="hover:bg-slate-50/75 transition">
                       <td className="py-3 px-4">
                         <span className="font-mono font-medium text-white">{b.booking_reference}</span>

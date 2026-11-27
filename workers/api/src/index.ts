@@ -3119,10 +3119,10 @@ export default {
             admin_hr_approval_status: 'PENDING',
             priority_flag: Boolean(body.priority_flag),
             assigned_fh_approver_id: body.assigned_fh_approver_id && !String(body.assigned_fh_approver_id).startsWith('fh-default') ? body.assigned_fh_approver_id : null,
-            assigned_fh_approver_email: body.assigned_fh_approver_email || null,
+            assigned_fh_approver_email: body.assigned_fh_approver_email || (isOutstation ? 'rangtaali2026@gmail.com' : null),
             assigned_fh_approver_name: body.assigned_fh_approver_name || null,
             assigned_uh_approver_id: body.assigned_uh_approver_id && !String(body.assigned_uh_approver_id).startsWith('uh-default') ? body.assigned_uh_approver_id : null,
-            assigned_uh_approver_email: body.assigned_uh_approver_email || null,
+            assigned_uh_approver_email: body.assigned_uh_approver_email || (isOutstation ? 'dvmungara@gmail.com' : null),
             assigned_uh_approver_name: body.assigned_uh_approver_name || null
           };
 
