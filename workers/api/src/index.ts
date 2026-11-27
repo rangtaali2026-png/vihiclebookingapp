@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { WorkerMailer } from 'worker-mailer';
 
 import { createClient } from '@supabase/supabase-js';
 import type { CreateBookingPayload, Vehicle } from '@plant-transit/shared-types';
@@ -2259,29 +2259,34 @@ export default {
           return { skipped: true, reason: 'Email dispatch service is disabled or unconfigured' };
         }
 
-        const port = Number(cfg.smtp_port) || 587;
-        const transporter = nodemailer.createTransport({
-          host: cfg.smtp_host,
-          port,
-          secure: port === 465, // true for 465 (Gmail SSL), false for 587 (O365 / Gmail STARTTLS)
-          auth: {
-            user: cfg.smtp_username,
-            pass: cfg.smtp_password
+        const host = String(cfg.smtp_host).trim();
+        const port = Number(cfg.smtp_port) || (host.includes('gmail') ? 465 : 587);
+        const isImplicitSsl = port === 465;
+
+        await WorkerMailer.send(
+          {
+            host,
+            port,
+            secure: isImplicitSsl,
+            startTls: !isImplicitSsl,
+            authType: ['plain', 'login'],
+            credentials: {
+              username: String(cfg.smtp_username).trim(),
+              password: String(cfg.smtp_password).trim()
+            }
           },
-          tls: {
-            ciphers: 'SSLv3',
-            rejectUnauthorized: false
+          {
+            from: {
+              name: String(cfg.sender_name || 'SmartDrive Mobility Desk').trim(),
+              email: String(cfg.sender_email || cfg.smtp_username).trim()
+            },
+            to: recipients.map((email) => ({ email })),
+            subject,
+            html: htmlBody
           }
-        });
+        );
 
-        const info = await transporter.sendMail({
-          from: `"${cfg.sender_name || 'SmartDrive Mobility'}" <${cfg.sender_email || cfg.smtp_username}>`,
-          to: recipients.join(', '),
-          subject,
-          html: htmlBody
-        });
-
-        return { sent: true, messageId: info.messageId };
+        return { sent: true };
       };
 
       // GET /api/super-admin/email-config

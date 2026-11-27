@@ -56,7 +56,7 @@ export default function SuperAdminEmailServicePage() {
       setSmtpPort(587);
     } else if (targetProvider === 'GMAIL') {
       setSmtpHost('smtp.gmail.com');
-      setSmtpPort(587);
+      setSmtpPort(465);
     }
   };
 
@@ -277,7 +277,7 @@ export default function SuperAdminEmailServicePage() {
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono font-semibold text-slate-900 bg-white"
                   >
                     <option value={587}>587 (STARTTLS — Recommended)</option>
-                    <option value={465}>465 (SSL / TLS)</option>
+                    <option value={465}>465 (SSL / TLS — Best for Gmail)</option>
                     <option value={25}>25 (Internal Relay)</option>
                   </select>
                 </div>
